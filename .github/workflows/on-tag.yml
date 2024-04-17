@@ -1,0 +1,21 @@
+name: "On Tag Pushed"
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  push:
+    uses: tagshelfsrl/github-actions/.github/workflows/docker-build-push-gcp.yml@v1.11.1
+    secrets:
+      host: us-east1-docker.pkg.dev
+      workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      service_account: ${{ secrets.GCP_GITHUB_ACTIONS_SA }}
+      build-args: |
+        BUILD_TAG=${{ github.ref_name }}
+        PYPI_USER=${{ secrets.PYPI_USER }}
+        PYPI_PASS=${{ secrets.PYPI_PASS }}
+    with:
+      push: true
+      images: us-east1-docker.pkg.dev/tagshelf/${{github.repository}}
