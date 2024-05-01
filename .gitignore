@@ -155,3 +155,6 @@ models/
 
 # Health check file
 healthy
+
+# Demo files
+demo.py
