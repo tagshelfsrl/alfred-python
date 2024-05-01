@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alfred-python"
+version = "0.0.1"
+authors = [
+  { name="Tagshelf LLC", email="support@tagshelf.com" },
+]
+description = "Python library designed to simplify and streamline interactions with the Alfred API"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pydantic >= 2.0",
+    "pydantic-settings >= 2.0",
+]
+
+[project.urls]
+homepage = "https://github.com/tagshelfsrl/alfred-python"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["alfred", "alfred.*"]
