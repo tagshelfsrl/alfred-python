@@ -1,7 +1,7 @@
 # Native imports
 import os
 from enum import Enum
-from typing import TypedDict, Optional, Text, Dict
+from typing import TypedDict, Optional, Text, Dict, Any
 
 # 3rd party imports
 from urllib3.util.retry import Retry
@@ -85,6 +85,7 @@ class HttpClient:
         params: Optional[Dict[str, object]] = None,
         data: Optional[Dict[str, object]] = None,
         headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = None,
     ):
         """
@@ -111,6 +112,7 @@ class HttpClient:
             "url": url,
             "params": params,
             "headers": headers,
+            "files": files,
         }
 
         if headers and headers.get("Content-Type") == "application/json":
