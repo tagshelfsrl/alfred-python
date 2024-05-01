@@ -47,7 +47,11 @@ class HttpClient:
         self.session = Session()
 
         # Setup retry strategy
-        self.max_retries = config.get("max_retries", 0)
+        self.max_retries = config.get("max_retries", 3)
+        if self.max_retries <= 0:
+            raise ValueError(
+                f"Max retries ({self.max_retries}) cannot be zero or less."
+            )
         retry_strategy = Retry(
             total=self.max_retries,
             status_forcelist=[429, 500, 502, 503, 504],
