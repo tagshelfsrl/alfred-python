@@ -18,6 +18,22 @@ class HttpMethod(Enum):
     HEAD = "HEAD"
 
 
+class OAuthConfiguration(TypedDict):
+    username: Text
+    password: Text
+
+
+class HmacConfiguration(TypedDict):
+    api_key: Text
+    secret_key: Text
+
+
+class AuthConfiguration(TypedDict):
+    api_key: Optional[Text]
+    oauth: Optional[OAuthConfiguration]
+    hmac: Optional[HmacConfiguration]
+
+
 class HttpConfiguration(TypedDict):
     pool_connections: Optional[bool]
     timeout: Optional[float]
