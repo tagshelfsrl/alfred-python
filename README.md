@@ -6,6 +6,26 @@ Welcome to the `alfred-python` SDK, the official Python library for interfacing 
 
 - Python v3.8+
 
+## Usage
+
+Work in progress...
+
+## Configuration
+
+This section provides detailed instructions and guidelines for configuring the SDK to interface effectively with the target API.
+
+### Retry Policy
+
+In this SDK, we implement automatic retries to enhance the reliability of network requests. However, to maintain the integrity of data transactions, retries are only enabled for HTTP methods that are considered idempotent. Idempotent methods are those that can be called multiple times without different outcomes. Thus, retries are applied only to the following HTTP methods:
+
+- GET: Retrieves data from the server without changing any state.
+- PUT: Updates a resource in a way that it can be repeatedly updated without changing the outcome beyond the initial application.
+- DELETE: Removes a resource and subsequent deletions of the same resource are redundant.
+- HEAD: Fetches metadata about a resource without side-effects.
+- OPTIONS: Retrieves supported communication options for a given URL or server without causing any side effects.
+
+For non-idempotent methods like POST and PATCH, the SDK does not perform retries by default because doing so could potentially result in unwanted side effects or duplicate operations. If you need to enable retries for these methods under specific circumstances, please handle them cautiously in your application logic.
+
 ## Development Setup
 
 ### Setting up the development environment
