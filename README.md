@@ -56,4 +56,28 @@ For testing and development, it's often useful to install the package in a way t
    pip install --editable .
    ```
 
-This command installs the SDK in a way that any changes you make to the source code will immediately affect the installed package, facilitating rapid testing and development.
+## Building the Project
+
+To package `alfred-python` into distributable formats such as source archives and wheels, you will need to use the `build` module, a modern tool for building packages that adheres to PEP 517. Follow these steps to build the project:
+
+### Preparing the Build Environment
+
+Before building the project, ensure that your development environment is activated and up-to-date. If you don’t have an environment set up, please refer to the [Development Setup](#development-setup) section to create and activate one.
+
+### Installing the Build Tool
+
+With your environment ready, install the `build` package. This package provides a simple, reliable way to build your project. Install it using pip:
+
+```bash
+pip install -U build
+```
+
+### Running the Build Process
+
+Once `build` is installed, you can generate the build artifacts by running the following command from the root directory of your project:
+
+```bash
+python -m build
+```
+
+This command will produce a source distribution (`tar.gz`) and a wheel file (`whl`) in the `dist/` directory. These files are what you would upload to a package index like PyPI, or distribute to other developers.
