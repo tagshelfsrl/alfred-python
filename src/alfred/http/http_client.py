@@ -133,8 +133,9 @@ class HttpClient:
         - headers: HTTP headers
         """
         headers = headers or {}
+        default_headers = {
+            "Accept-Charset": "utf-8",
+            "Content-Type": "application/json",
+        }
 
-        headers["Accept-Charset"] = "utf-8"
-        headers["Content-Type"] = "application/json"
-
-        return headers
+        return {**default_headers, **headers}
