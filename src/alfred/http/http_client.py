@@ -2,9 +2,9 @@
 import os
 from enum import Enum
 from typing import TypedDict, Optional, Text, Dict
-from urllib3.util.retry import Retry
 
 # 3rd party imports
+from urllib3.util.retry import Retry
 from requests import Session, Request
 from requests.adapters import HTTPAdapter
 
@@ -46,14 +46,13 @@ class HttpClient:
         self.base_url = base_url
         self.session = Session()
 
-        # Setup max retry limit
-        self.max_retries = config.get("max_retries", 3)
+        # Setup retry strategy
+        self.max_retries = config.get("max_retries", 0)
         retry_strategy = Retry(
             total=self.max_retries,
             status_forcelist=[429, 500, 502, 503, 504],
             backoff_factor=1,
         )
-        self.session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
 
         # Setup timeout
         self.timeout = config.get("timeout", 5)
@@ -61,10 +60,19 @@ class HttpClient:
             raise ValueError(f"Timeout ({self.timeout}) cannot be zero or less.")
 
         # Setup pool connections
+        pool_size = 1
+        pool_maxsize = 1
         if config.get("pool_connections", True):
-            self.session.mount(
-                "https://", HTTPAdapter(pool_maxsize=min(32, os.cpu_count() + 4))
-            )
+            pool_size = 10
+            pool_maxsize = min(32, os.cpu_count() + 4)
+
+        adapter = HTTPAdapter(
+            pool_maxsize=pool_maxsize,
+            pool_connections=pool_size,
+            max_retries=retry_strategy,
+        )
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def request(
         self,
@@ -111,7 +119,7 @@ class HttpClient:
         response = self.session.send(prepped_request, timeout=timeout)
 
         response.raise_for_status()
-        return response.json()
+        return response
 
     def get_headers(self, headers: Optional[Dict[str, str]]) -> Dict[str, str]:
         """
