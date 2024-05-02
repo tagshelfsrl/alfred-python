@@ -26,7 +26,7 @@ class HttpClient:
     auth_config: AuthConfiguration
     auth_method: Optional[AuthMethod] = None
     token: Optional[Text] = None
-    retry_count: int = 0
+    refresh_token_retry_count: int = 0
 
     def __init__(
         self,
@@ -109,14 +109,14 @@ class HttpClient:
         if (
             response.status_code == 401
             and self.auth_method == AuthMethod.OAUTH
-            and self.retry_count == 0
+            and self.refresh_token_retry_count == 0
         ):
-            self.retry_count += 1
+            self.refresh_token_retry_count += 1
             self.token = None
             self.__auth_with_oauth(response.request)
             response = self.session.send(response.request)
             if response.status_code != 401:
-                self.retry_count = 0
+                self.refresh_token_retry_count = 0
             return response
 
     def __auth_with_api_key(self, api_key: Text):
