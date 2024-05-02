@@ -115,7 +115,7 @@ class HttpClient:
             self.token = None
             self.__auth_with_oauth(response.request)
             response = self.session.send(response.request)
-            if response.status_code == 200:
+            if response.status_code != 401:
                 self.retry_count = 0
             return response
 
