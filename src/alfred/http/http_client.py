@@ -1,21 +1,22 @@
 # Native imports
-import os
-import hmac
 import base64
 import hashlib
+import hmac
+import os
 from time import time
-from uuid import uuid4
+from typing import Dict, Any
 from urllib.parse import quote
-from typing import Optional, Text, Dict, Any
+from uuid import uuid4
 
 # 3rd party imports
-from urllib3.util.retry import Retry
-from requests import Session, Request, PreparedRequest
+from requests import Session, Request, PreparedRequest, Response
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Project imports
 from .typed import *  # pylint: disable=W0401, W0614
 from ..base.exceptions import AlfredMissingAuthException
+from ..utils import logging
 
 
 class HttpClient:
@@ -51,6 +52,9 @@ class HttpClient:
         self.session = Session()
         self.auth_config = auth_config
         config = config or {}
+
+        # Initialize logger
+        self.logger = logging.getLogger("alfred-python")
 
         # Setup retry strategy
         self.max_retries = config.get("max_retries", 3)
@@ -100,8 +104,9 @@ class HttpClient:
 
         # Setup interceptor
         self.session.hooks["response"].append(self.__response_interceptor)
+        self.session.hooks["response"].append(self.__logger_interceptor)
 
-    def __response_interceptor(self, response, *args, **kwargs):
+    def __response_interceptor(self, response: Response, *args, **kwargs):
         """
         Intercepts the response and raises an exception if the status code is not 200.
         """
@@ -376,3 +381,30 @@ class HttpClient:
         return self.request(
             HttpMethod.DELETE, uri, params, data, headers, files, timeout
         )
+
+    def __logger_interceptor(self, response: Response, *args, **kwargs):
+        """
+        Log the HTTP status code and response body of erroneous responses.
+        """
+
+        # Log detailed HTTP request information.
+        self.logger.debug({
+            "message": "HTTP request details.",
+            "method": response.request.method,
+            "url": response.request.url,
+            "headers": {k: v for k, v in response.request.headers.items() if
+                        k.lower() not in ["authorization", "cookie", "x-tagshelfapi-key"]},
+            "body": response.request.body,
+        })
+
+        # Log response details if not successful.
+        if not response.ok:
+            self.logger.debug({
+                "message": "HTTP response details.",
+                "method": response.request.method,
+                "url": response.request.url,
+                "status_code": response.status_code,
+                "body": response.text,
+                "response_size": len(response.content),
+                "response_content_type": response.headers.get('Content-Type'),
+            })
