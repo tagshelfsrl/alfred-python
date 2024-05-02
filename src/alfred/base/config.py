@@ -24,6 +24,7 @@ class Configuration:
         """
         Returns client configuration for Alfred V1.
         """
+        overrides = overrides or {}
         return {
             "version": 1,
             "base_url": overrides.get("base_url", "https://app.tagshelf.com"),
