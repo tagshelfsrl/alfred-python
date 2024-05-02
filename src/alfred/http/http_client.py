@@ -107,10 +107,7 @@ class HttpClient:
           If no value is provided, the function will attempt to retrieve the API key from
           the environment variable.
         """
-        key = api_key
-        if not key:
-            key = os.getenv("ALFRED_API_KEY")
-
+        key = api_key or os.getenv("ALFRED_API_KEY")
         if not key:
             return
 
