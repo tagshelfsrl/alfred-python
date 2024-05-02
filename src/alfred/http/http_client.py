@@ -286,3 +286,93 @@ class HttpClient:
 
         response.raise_for_status()
         return response
+
+    def get(
+        self,
+        uri: Text,
+        params: Optional[Dict[str, object]] = None,
+        data: Optional[Dict[str, object]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ):
+        """
+        Makes a GET request to the Alfred API.
+
+        Args:
+        - uri: Fully qualified URI.
+        - params: Query string parameters.
+        - data: Body data.
+        - headers: HTTP headers.
+        - files: Files to upload.
+        - timeout: Timeout for the requests in seconds.
+        """
+        return self.request(HttpMethod.GET, uri, params, data, headers, files, timeout)
+
+    def post(
+        self,
+        uri: Text,
+        params: Optional[Dict[str, object]] = None,
+        data: Optional[Dict[str, object]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ):
+        """
+        Makes a POST request to the Alfred API.
+
+        Args:
+        - uri: Fully qualified URI.
+        - params: Query string parameters.
+        - data: Body data.
+        - headers: HTTP headers.
+        - files: Files to upload.
+        - timeout: Timeout for the requests in seconds.
+        """
+        return self.request(HttpMethod.POST, uri, params, data, headers, files, timeout)
+
+    def put(
+        self,
+        uri: Text,
+        params: Optional[Dict[str, object]] = None,
+        data: Optional[Dict[str, object]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ):
+        """
+        Makes a PUT request to the Alfred API.
+
+        Args:
+        - uri: Fully qualified URI.
+        - params: Query string parameters.
+        - data: Body data.
+        - headers: HTTP headers.
+        - files: Files to upload.
+        - timeout: Timeout for the requests in seconds.
+        """
+        return self.request(HttpMethod.PUT, uri, params, data, headers, files, timeout)
+
+    def delete(
+        self,
+        uri: Text,
+        params: Optional[Dict[str, object]] = None,
+        data: Optional[Dict[str, object]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ):
+        """
+        Makes a DELETE request to the Alfred API.
+
+        Args:
+        - uri: Fully qualified URI.
+        - params: Query string parameters.
+        - data: Body data.
+        - headers: HTTP headers.
+        - files: Files to upload.
+        - timeout: Timeout for the requests in seconds.
+        """
+        return self.request(
+            HttpMethod.DELETE, uri, params, data, headers, files, timeout
+        )
