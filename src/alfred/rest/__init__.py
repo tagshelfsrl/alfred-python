@@ -6,6 +6,7 @@ from src.alfred.base.config import ConfigurationDict
 from src.alfred.http.http_client import HttpClient
 from src.alfred.http.typed import AuthConfiguration, HttpConfiguration
 from src.alfred.rest.data_points import DataPointsBase, DataPointsFactory
+from src.alfred.rest.sessions import SessionsBase, SessionsFactory
 
 
 class AlfredClient:
@@ -31,6 +32,7 @@ class AlfredClient:
 
         # Domain properties
         self._data_points: Optional[DataPointsBase] = None
+        self._sessions: Optional[SessionsBase] = None
 
     def __get_domain_by_version(self, factory):
         """
@@ -48,3 +50,13 @@ class AlfredClient:
             self._data_points = self.__get_domain_by_version(DataPointsFactory)
 
         return self._data_points
+
+    @property
+    def sessions(self) -> "SessionsBase":
+        """
+        Access the Sessions domain.
+        """
+        if self._sessions is None:
+            self._sessions = self.__get_domain_by_version(SessionsFactory)
+
+        return self._sessions
