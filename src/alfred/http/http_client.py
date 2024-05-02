@@ -26,6 +26,7 @@ class HttpClient:
     auth_config: AuthConfiguration
     auth_method: Optional[AuthMethod] = None
     token: Optional[Text] = None
+    retry_count: int = 0
 
     def __init__(
         self,
@@ -96,6 +97,27 @@ class HttpClient:
 
         if not self.auth_method:
             raise AlfredMissingAuthException
+
+        # Setup interceptor
+        self.session.hooks["response"].append(self.__response_interceptor)
+
+    def __response_interceptor(self, response, *args, **kwargs):
+        """
+        Intercepts the response and raises an exception if the status code is not 200.
+        """
+        # if the response is unauthorized, attempt to re-authenticate OAuth
+        if (
+            response.status_code == 401
+            and self.auth_method == AuthMethod.OAUTH
+            and self.retry_count == 0
+        ):
+            self.retry_count += 1
+            self.token = None
+            self.__auth_with_oauth(response.request)
+            response = self.session.send(response.request)
+            if response.status_code == 200:
+                self.retry_count = 0
+            return response
 
     def __auth_with_api_key(self, api_key: Text):
         """
