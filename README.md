@@ -8,7 +8,20 @@ Welcome to the `alfred-python` SDK, the official Python library for interfacing 
 
 ## Usage
 
-Work in progress...
+Check out this simple example to get up and running:
+
+```python
+from alfred.rest import AlfredClient
+from alfred.base.config import Configuration
+
+config = Configuration.v1()
+auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
+
+client = AlfredClient(config, auth_config)
+
+response = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(response.json())
+```
 
 ## Configuration
 
