@@ -3,7 +3,7 @@ import os
 import hmac
 import base64
 import hashlib
-from time import time
+from time import time, sleep
 from uuid import uuid4
 from urllib.parse import quote
 from typing import Optional, Text, Dict, Any
@@ -17,6 +17,9 @@ from requests.adapters import HTTPAdapter
 from .typed import *  # pylint: disable=W0401, W0614
 from ..base.exceptions import AlfredMissingAuthException
 
+from datetime import datetime
+import logging
+
 
 class HttpClient:
     base_url: Text
@@ -27,6 +30,7 @@ class HttpClient:
     auth_method: Optional[AuthMethod] = None
     token: Optional[Text] = None
     refresh_token_retry_count: int = 0
+    rate_limit: Optional[Dict[str, Any]] = None
 
     def __init__(
         self,
@@ -105,6 +109,15 @@ class HttpClient:
         """
         Intercepts the response and raises an exception if the status code is not 200.
         """
+        # Extract rate limit headers
+        self.rate_limit = {
+            "limit": int(response.headers.get("X-RateLimit-Limit", 0)),
+            "remaining": int(response.headers.get("X-RateLimit-Remaining", 0)),
+            "reset_time": datetime.utcfromtimestamp(
+                int(response.headers.get("X-RateLimit-Reset", 0))
+            ),
+        }
+
         # if the response is unauthorized, attempt to re-authenticate OAuth
         if (
             response.status_code == 401
@@ -282,6 +295,8 @@ class HttpClient:
             elif self.auth_method == AuthMethod.HMAC:
                 self.__auth_with_hmac(prepped_request)
 
+        self.throttle_request()
+
         response = self.session.send(prepped_request, timeout=timeout)
 
         response.raise_for_status()
@@ -376,3 +391,21 @@ class HttpClient:
         return self.request(
             HttpMethod.DELETE, uri, params, data, headers, files, timeout
         )
+
+    def should_throttle(self) -> bool:
+        """
+        Check if the client should throttle requests based on rate limiting headers.
+        """
+        if self.rate_limit:
+            remaining = self.rate_limit.get("remaining", 0)
+            reset_time = self.rate_limit.get("reset_time")
+            return remaining <= 0 and reset_time and datetime.utcnow() < reset_time
+        return False
+
+    def throttle_request(self, delay: float = 1.0):
+        """
+        Throttle the request by delaying for a given time.
+        """
+        if self.should_throttle():
+            logging.warning("Rate limit exceeded. Throttling request.")
+            sleep(delay)
