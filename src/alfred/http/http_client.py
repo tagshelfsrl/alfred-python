@@ -178,7 +178,7 @@ class HttpClient:
         data = {"grant_type": "password", "username": username, "password": password}
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        response = self.request(
+        _, response = self.request(
             HttpMethod.POST,
             "/token",
             data=data,
@@ -256,8 +256,10 @@ class HttpClient:
         """
 
         # Get the response type based on the content type header.
-        content_type = response.headers.get("Content-Type").split(';')[0]
-        reversed_response_type_header_mapping = {v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()}
+        content_type = response.headers.get("Content-Type").split(";")[0]
+        reversed_response_type_header_mapping = {
+            v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()
+        }
         response_type = reversed_response_type_header_mapping.get(content_type)
 
         try:
@@ -426,23 +428,35 @@ class HttpClient:
         """
 
         # Log detailed HTTP request information.
-        self.logger.debug({
-            "message": "HTTP request details.",
-            "method": response.request.method,
-            "url": response.request.url,
-            "headers": {k: v for k, v in response.request.headers.items() if
-                        k.lower() not in ["authorization", "cookie", "x-tagshelfapi-key"]},
-            "body": response.request.body,
-        })
+        body = (
+            response.request.body
+            if not isinstance(response.request.body, bytes)
+            else ""
+        )
+        self.logger.debug(
+            {
+                "message": "HTTP request details.",
+                "method": response.request.method,
+                "url": response.request.url,
+                "headers": {
+                    k: v
+                    for k, v in response.request.headers.items()
+                    if k.lower() not in ["authorization", "cookie", "x-tagshelfapi-key"]
+                },
+                "body": body,
+            }
+        )
 
         # Log response details if not successful.
         if not response.ok:
-            self.logger.debug({
-                "message": "HTTP response details.",
-                "method": response.request.method,
-                "url": response.request.url,
-                "status_code": response.status_code,
-                "body": response.text,
-                "response_size": len(response.content),
-                "response_content_type": response.headers.get('Content-Type'),
-            })
+            self.logger.debug(
+                {
+                    "message": "HTTP response details.",
+                    "method": response.request.method,
+                    "url": response.request.url,
+                    "status_code": response.status_code,
+                    "body": response.text,
+                    "response_size": len(response.content),
+                    "response_content_type": response.headers.get("Content-Type"),
+                }
+            )

@@ -1,13 +1,14 @@
 # Native imports
 from typing import Optional
 
-# 3rd party imports
+# Project imports
 from src.alfred.base.config import ConfigurationDict
 from src.alfred.http.http_client import HttpClient
 from src.alfred.http.typed import AuthConfiguration, HttpConfiguration
 from src.alfred.rest.data_points import DataPointsBase, DataPointsFactory
 from src.alfred.rest.sessions import SessionsBase, SessionsFactory
 from src.alfred.rest.jobs import JobsBase, JobsFactory
+from src.alfred.rest.files import FilesBase, FilesFactory
 
 
 class AlfredClient:
@@ -35,6 +36,7 @@ class AlfredClient:
         self._data_points: Optional[DataPointsBase] = None
         self._sessions: Optional[SessionsBase] = None
         self._jobs: Optional[JobsBase] = None
+        self._files: Optional[FilesBase] = None
 
     def __get_domain_by_version(self, factory):
         """
@@ -72,3 +74,13 @@ class AlfredClient:
             self._jobs = self.__get_domain_by_version(JobsFactory)
 
         return self._jobs
+
+    @property
+    def files(self) -> "FilesBase":
+        """
+        Access the Files domain.
+        """
+        if self._files is None:
+            self._files = self.__get_domain_by_version(FilesFactory)
+
+        return self._files
