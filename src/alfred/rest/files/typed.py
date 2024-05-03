@@ -1,5 +1,5 @@
 # Native imports
-from io import FileIO, BytesIO
+from io import BufferedReader, BytesIO
 from typing import Dict, List, TypedDict, Optional, Union
 
 
@@ -17,7 +17,7 @@ class UploadRemoteFilePayload(TypedDict):
 
 
 class UploadLocalFilePayload(TypedDict):
-    file: Union[FileIO, BytesIO]
+    file: Union[BufferedReader, BytesIO]
     filename: Optional[str]
     session_id: str
     metadata: Optional[Dict]

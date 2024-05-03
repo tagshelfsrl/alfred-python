@@ -1,6 +1,6 @@
 # Native imports
+from io import BufferedReader
 from typing import Text
-from io import BytesIO, FileIO
 from urllib.parse import unquote
 
 # Project imports
@@ -16,7 +16,8 @@ class Files(FilesBase):
         self.http_client = http_client
 
     def get(self, file_id: Text) -> FileDetailsResponse:
-        return self.http_client.get(f"/api/file/detail/{file_id}")
+        parsed_resp, _ = self.http_client.get(f"/api/file/detail/{file_id}")
+        return parsed_resp
 
     def download(self, file_id: Text) -> DownloadResponse:
         _, response = self.http_client.get(f"/api/file/download/{file_id}")
@@ -33,26 +34,27 @@ class Files(FilesBase):
         }
 
     def upload(self, payload: UploadRemoteFilePayload) -> UploadResponse:
-        return self.http_client.post("/api/file/upload", data=payload)
+        parsed_resp, _ = self.http_client.post("/api/file/upload", data=payload)
+        return parsed_resp
 
     def upload_file(self, payload: UploadLocalFilePayload) -> UploadResponse:
         file = payload.get("file")
-        files = {}
+        filename = payload.get("filename")
 
-        if isinstance(file, BytesIO):
-            filename = payload.get("filename")
-            if not filename:
-                raise AlfredMissingArgument(
-                    "filename is required when providing a BytesIO file."
-                )
+        if isinstance(file, BufferedReader):
+            filename = file.name
 
-            files["file"] = (filename, file)
-        elif isinstance(file, FileIO):
-            files["file"] = file
+        if not filename:
+            raise AlfredMissingArgument("filename must be provided.")
+
+        files = [("file", (filename, file, "application/octet-stream"))]
 
         data = {key: value for key, value in payload.items() if key != "file"}
 
-        return self.http_client.post("/api/file/uploadfile", data=data, files=files)
+        parsed_resp, _ = self.http_client.post(
+            "/api/file/uploadfile", data=data, files=files
+        )
+        return parsed_resp
 
     def __extract_filename(self, content_disposition: Text):
         """
