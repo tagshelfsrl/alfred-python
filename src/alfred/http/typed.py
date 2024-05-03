@@ -18,6 +18,12 @@ class AuthMethod(Enum):
     HMAC = ("hmac",)
 
 
+class ResponseType:
+    JSON = "json"
+    TEXT = "text"
+    XML = "xml"
+
+
 class OAuthConfiguration(TypedDict):
     username: Text
     password: Text
@@ -38,3 +44,4 @@ class HttpConfiguration(TypedDict):
     pool_connections: Optional[bool]
     timeout: Optional[float]
     max_retries: Optional[int]
+    response_type: Optional[ResponseType]
