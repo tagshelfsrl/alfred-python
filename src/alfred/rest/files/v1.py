@@ -1,6 +1,7 @@
 # Native imports
-from io import BufferedReader
+import os
 from typing import Text
+from io import BufferedReader
 from urllib.parse import unquote
 
 # Project imports
@@ -42,7 +43,7 @@ class Files(FilesBase):
         filename = payload.get("filename")
 
         if isinstance(file, BufferedReader):
-            filename = file.name
+            filename = os.path.basename(file.name)
 
         if not filename:
             raise AlfredMissingArgument("filename must be provided.")
@@ -52,7 +53,10 @@ class Files(FilesBase):
         data = {key: value for key, value in payload.items() if key != "file"}
 
         parsed_resp, _ = self.http_client.post(
-            "/api/file/uploadfile", data=data, files=files
+            "/api/file/uploadfile",
+            data=data,
+            files=files,
+            headers={"content-type": None},
         )
         return parsed_resp
 
