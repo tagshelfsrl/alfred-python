@@ -261,14 +261,17 @@ class HttpClient:
         reversed_response_type_header_mapping = {v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()}
         response_type = reversed_response_type_header_mapping.get(content_type)
 
-        if accept == 'application/xml' and response_type == ResponseType.JSON:
-            return ET.fromstring(response.text)
-        elif response_type == ResponseType.JSON:
-            return response.json()
-        elif response_type == ResponseType.TEXT:
-            return response.text
-        else:
-            return response.text
+        try:
+            if accept == 'application/xml' and response_type == ResponseType.JSON:
+                return ET.fromstring(response.text)
+            elif response_type == ResponseType.JSON:
+                return response.json()
+            elif response_type == ResponseType.TEXT:
+                return response.text
+            else:
+                return response.text
+        except Exception as e:
+            raise ValueError(f"Failed to parse response: {e}")
 
     def request(
         self,
