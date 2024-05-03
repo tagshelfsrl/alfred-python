@@ -35,6 +35,8 @@ class HttpClient:
     rate_limit: Optional[Dict[str, Any]] = None
     throttle_delay: float
     throttle_threshold: int
+    throttle_delay_backoff: float = 2
+    throttle_delay_max: float = 60
 
     def __init__(
         self,
@@ -454,8 +456,12 @@ class HttpClient:
         # If the rate limit is 100 and the remaining is 80, we should not throttle.
         if self.rate_limit and self.throttle_threshold > 0:
             remaining = self.rate_limit.get("remaining", 0)
-            limit = self.rate_limit.get("limit", 0)
-            return (remaining / limit) * 100 <= self.throttle_threshold
+            if remaining <= 0:
+                self.throttle_delay = min(self.throttle_delay * self.throttle_delay_backoff, self.throttle_delay_max)
+                return True
+            else:
+                limit = self.rate_limit.get("limit", 0)
+                return (remaining / limit) * 100 <= self.throttle_threshold
         return False
 
     def throttle_request(self, delay: float = 1.0):
