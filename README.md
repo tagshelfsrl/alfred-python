@@ -19,34 +19,19 @@ auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
 
 client = AlfredClient(config, auth_config)
 
-result, raw = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(result)
-```
-
-### Data Points
-
-Data Points are the core of Alfred's platform and represent data that you want to extract. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/metadata).
-
-> [!IMPORTANT]  
-> Data Points where previously known as Metadata.
-
-#### Get Data Point by File ID
-
-```python
-# Get a data point by file ID
-result, raw = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(result)
+values = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(values)
 ```
 
 ### Sessions
 
 A Session is a mechanism designed for asynchronous file uploads. It serves as a container or grouping for files that are uploaded at different times or from various sources, but are all part of a single Job. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/deferred-session).
-  
+
 #### Get session by ID
 
 ```python
 # Get a session by ID
-result, raw = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
@@ -54,7 +39,7 @@ print(result)
 
 ```python
 # Create a session
-result, raw = client.sessions.create()
+result = client.sessions.create()
 print(result)
 ```
 
@@ -66,25 +51,11 @@ A Job represents a single unit of work that group one or more Files within Alfre
 
 ```python
 # Get a job by ID
-result, raw = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
 #### Create job
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| session_id | string | Session ID |
-| metadata | any | Metadata of the job |
-| propagate_metadata | boolean | If `true` ensures that the provided metadata at the Job level is attached to all the specified Files. |
-| merge | boolean | If `true`, when all provided Files are either images or PDFs, the system combines them into a single file for the purpose of processing. |
-| decompose | boolean | If `true`, when the provided File is a PDF, the system will decompose it into individual pages for processing. |
-| channel | string | Channel |
-| parent_file_prefix | string | The `parent_file_prefix` parameter is used to specify a virtual folder destination for the uploaded files, diverging from the default 'Inbox' folder. By setting this parameter, users can organize files into specific virtual directories, enhancing file management and accessibility within Alfred's system. |
-| page_rotation | number | Page rotation |
-| container | string | Virtual container where the referenced remote file is located.|
-| file_name | string | Unique name of the file within an object storage source.|
-| file_names | string[] | Array of unique names of the files within an object storage source.|
 
 ```python
 job = {
@@ -104,7 +75,83 @@ job = {
 }
 
 # Create a job
-result, raw = client.jobs.create(job)
+result = client.jobs.create(job)
+print(result)
+```
+
+Here is a description for each valid argument when creating a job:
+
+| Parameter          | Type     | Description                                                                                                                              |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| session_id         | string   | Session ID                                                                                                                               |
+| metadata           | any      | Metadata of the job                                                                                                                      |
+| propagate_metadata | boolean  | If `true` ensures that the provided metadata at the Job level is attached to all the specified Files.                                    |
+| merge              | boolean  | If `true`, when all provided Files are either images or PDFs, the system combines them into a single file for the purpose of processing. |
+| decompose          | boolean  | If `true`, when the provided File is a PDF, the system will decompose it into individual pages for processing.                           |
+| channel            | string   | Channel                                                                                                                                  |
+| parent_file_prefix | string   | The `parent_file_prefix` parameter is used to specify a virtual folder destination for the uploaded files.                               |
+| page_rotation      | number   | Page rotation                                                                                                                            |
+| container          | string   | Virtual container where the referenced remote file is located.                                                                           |
+| file_name          | string   | Unique name of the file within an object storage source.                                                                                 |
+| file_names         | string[] | Array of unique names of the files within an object storage source.                                                                      |
+
+### Files
+
+File is an individual document or data unit undergoing specialized operations tailored for document analysis and management. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/file).
+
+#### Get file by ID
+
+```python
+# Get a file by ID
+result = client.files.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(result)
+```
+
+#### Download file by ID
+
+```python
+# Download a file by ID
+result = client.files.download("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+
+with open(result.get("original_name"), "wb") as f:
+   f.write(result.get("file").getvalue())
+```
+
+#### Upload remote file
+
+```python
+# Upload a remote file
+result = client.files.upload({
+   "url": "<File URL>",
+   "metadata": {}
+})
+print(result)
+```
+
+#### Upload a local file
+
+```python
+with open("<Path to local file>", "rb") as upload_file:
+   result = client.files.upload_file({
+      "file": upload_file,
+      "session_id": "XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX",
+      "metadata": {}
+   })
+   print(result)
+```
+
+### Data Points
+
+Data Points are the core of Alfred's platform and represent data that you want to extract. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/metadata).
+
+> [!IMPORTANT]
+> Data Points where previously known as Metadata.
+
+#### Get Data Point by File ID
+
+```python
+# Get a data point by file ID
+result = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
