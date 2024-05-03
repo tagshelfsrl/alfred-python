@@ -17,4 +17,5 @@ class DataPoints(DataPointsBase):
         Args:
         - file_id: Unique identifier of the File.
         """
-        return self.http_client.get(f"/api/values/file/{file_id}")
+        parsed_resp, _ = self.http_client.get(f"/api/values/file/{file_id}")
+        return parsed_resp
