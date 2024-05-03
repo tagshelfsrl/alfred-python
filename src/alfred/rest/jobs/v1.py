@@ -1,5 +1,5 @@
 # Native imports
-from typing import Any, Text
+from typing import Text
 
 # Project imports
 from src.alfred.rest.jobs.typed import CreateJobDict
@@ -18,7 +18,8 @@ class Jobs(JobsBase):
         Args:
         - job: Job creation parameters.
         """
-        return self.http_client.post("/api/job/create", data=job)
+        parsed_resp, _ = self.http_client.post("/api/job/create", data=job)
+        return parsed_resp
 
     def get(self, job_id: Text):
         """
@@ -27,4 +28,5 @@ class Jobs(JobsBase):
         Args:
         - job_id: Unique identifier of the Job.
         """
-        return self.http_client.get(f"/api/job/detail/{job_id}")
+        parsed_resp, _ = self.http_client.get(f"/api/job/detail/{job_id}")
+        return parsed_resp

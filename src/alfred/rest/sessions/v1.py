@@ -14,7 +14,8 @@ class Sessions(SessionsBase):
         """
         Creates a new Session.
         """
-        return self.http_client.post("/api/deferred/create")
+        parsed_resp, _ = self.http_client.post("/api/deferred/create")
+        return parsed_resp
 
     def get(self, session_id: Text):
         """
@@ -23,4 +24,5 @@ class Sessions(SessionsBase):
         Args:
         - session_id: Unique identifier of the Session.
         """
-        return self.http_client.get(f"/api/deferred/detail/{session_id}")
+        parsed_resp, _ = self.http_client.get(f"/api/deferred/detail/{session_id}")
+        return parsed_resp
