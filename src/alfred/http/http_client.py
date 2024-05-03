@@ -3,9 +3,10 @@ import base64
 import hashlib
 import hmac
 import os
-from time import time
+from datetime import datetime
 from typing import Dict, Any
 from urllib.parse import quote
+from time import time, sleep
 from uuid import uuid4
 from xml.etree import ElementTree as ET
 
@@ -31,6 +32,12 @@ class HttpClient:
     token: Optional[Text] = None
     refresh_token_retry_count: int = 0
     response_type: ResponseType = ResponseType.JSON
+    rate_limit: Optional[Dict[str, Any]] = None
+    __initial_throttle_delay: float
+    throttle_delay: float
+    throttle_threshold: int
+    throttle_delay_backoff: float = 2
+    throttle_delay_max: float = 60
 
     def __init__(
         self,
@@ -51,6 +58,10 @@ class HttpClient:
             - config.max_retries: Maximum number of retries each request should
             attempt (default: 3).
             - config.response_type {ResponseType}: Specifies the expected format of the response data (default: JSON).
+            - config.throttle_delay: Delay in seconds to throttle requests (default: 1).
+            - config.throttle_threshold: Percentage of rate limit remaining to throttle requests (default: 20).
+                Set to 0 to disable throttling. 20 means that if the remaining rate limit is less than 20%
+                of the total rate limit, the http client will throttle the request.
         """
         self.base_url = base_url
         self.session = Session()
@@ -83,6 +94,11 @@ class HttpClient:
         # Validate that it's a valid response type.
         if self.response_type not in RESPONSE_TYPE_HEADER_MAPPING.keys():
             raise ValueError(f"Invalid response type: {self.response_type}")
+
+        # Setup throttle delay
+        self.throttle_delay = config.get("throttle_delay", 1)
+        self.throttle_threshold = config.get("throttle_threshold", 20)
+        self.__initial_throttle_delay = self.throttle_delay
 
         # Setup pool connections
         pool_size = 1
@@ -121,6 +137,15 @@ class HttpClient:
         """
         Intercepts the response and raises an exception if the status code is not 200.
         """
+        # Extract rate limit headers
+        self.rate_limit = {
+            "limit": int(response.headers.get("X-RateLimit-Limit", 0)),
+            "remaining": int(response.headers.get("X-RateLimit-Remaining", 0)),
+            "reset_time": datetime.utcfromtimestamp(
+                int(response.headers.get("X-RateLimit-Reset", 0))
+            ),
+        }
+
         # if the response is unauthorized, attempt to re-authenticate OAuth
         if (
             response.status_code == 401
@@ -327,6 +352,8 @@ class HttpClient:
             elif self.auth_method == AuthMethod.HMAC:
                 self.__auth_with_hmac(prepped_request)
 
+        self.throttle_request(self.throttle_delay)
+
         response = self.session.send(prepped_request, timeout=timeout)
 
         response.raise_for_status()
@@ -421,6 +448,37 @@ class HttpClient:
         return self.request(
             HttpMethod.DELETE, uri, params, data, headers, files, timeout
         )
+
+    def should_throttle(self) -> bool:
+        """
+        Check if the client should throttle requests based on rate limiting headers.
+        """
+
+        # We should throttle if the remaining rate limit is less than the threshold in percentage.
+        # For example, if the rate limit is 100 and the remaining is 20, we should throttle.
+        # If the rate limit is 100 and the remaining is 80, we should not throttle.
+        if self.rate_limit and self.throttle_threshold > 0:
+            remaining = self.rate_limit.get("remaining", 0)
+            limit = self.rate_limit.get("limit", 0)
+
+            if remaining <= 0:
+                self.throttle_delay = min(self.throttle_delay * self.throttle_delay_backoff, self.throttle_delay_max)
+                return True
+            else:
+                # Reset the throttle delay in case the rate limit has been reset.
+                self.throttle_delay = self.__initial_throttle_delay
+
+                # Check if the remaining rate limit is less than the threshold.
+                return (remaining / limit) * 100 <= self.throttle_threshold
+        return False
+
+    def throttle_request(self, delay: float = 1.0):
+        """
+        Throttle the request by delaying for a given time.
+        """
+        if self.should_throttle():
+            logging.warning("Rate limit is close to being reached. Throttling request.")
+            sleep(delay)
 
     def __logger_interceptor(self, response: Response, *args, **kwargs):
         """
