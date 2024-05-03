@@ -256,13 +256,12 @@ class HttpClient:
         """
 
         # Get the response type based on the content type header.
-        accept = response.request.headers.get("Accept")
-        content_type = response.request.headers.get("Content-Type").split(';')[0]
+        content_type = response.headers.get("Content-Type").split(';')[0]
         reversed_response_type_header_mapping = {v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()}
         response_type = reversed_response_type_header_mapping.get(content_type)
 
         try:
-            if accept == 'application/xml' and response_type == ResponseType.JSON:
+            if response_type == ResponseType.XML:
                 return ET.fromstring(response.text)
             elif response_type == ResponseType.JSON:
                 return response.json()
