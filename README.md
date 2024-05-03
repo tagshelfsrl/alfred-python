@@ -19,8 +19,8 @@ auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
 
 client = AlfredClient(config, auth_config)
 
-response = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(response.json())
+result, raw = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(result)
 ```
 
 ### Data Points
@@ -34,8 +34,8 @@ Data Points are the core of Alfred's platform and represent data that you want t
 
 ```python
 # Get a data point by file ID
-response = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(response.json())
+result, raw = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(result)
 ```
 
 ### Sessions
@@ -46,16 +46,16 @@ A Session is a mechanism designed for asynchronous file uploads. It serves as a 
 
 ```python
 # Get a session by ID
-response = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(response.json())
+result, raw = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(result)
 ```
 
 #### Create session
 
 ```python
 # Create a session
-response = client.sessions.create()
-print(response.json())
+result, raw = client.sessions.create()
+print(result)
 ```
 
 ### Jobs
@@ -66,8 +66,8 @@ A Job represents a single unit of work that group one or more Files within Alfre
 
 ```python
 # Get a job by ID
-response = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(response.json())
+result, raw = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(result)
 ```
 
 #### Create job
@@ -104,8 +104,8 @@ job = {
 }
 
 # Create a job
-response = client.jobs.create(job)
-print(response.json())
+result, raw = client.jobs.create(job)
+print(result)
 ```
 
 ## Configuration
