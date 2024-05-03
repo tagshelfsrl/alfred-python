@@ -1,24 +1,28 @@
 # Native imports
-import os
-import hmac
 import base64
 import hashlib
+import hmac
+import os
+from time import time
+from datetime import datetime
+import logging
+from typing import Dict, Any
+from urllib.parse import quote
 from time import time, sleep
 from uuid import uuid4
-from urllib.parse import quote
-from typing import Optional, Text, Dict, Any
+from xml.etree import ElementTree as ET
 
 # 3rd party imports
-from urllib3.util.retry import Retry
-from requests import Session, Request, PreparedRequest
+from requests import Session, Request, PreparedRequest, Response
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Project imports
 from .typed import *  # pylint: disable=W0401, W0614
+from ..base.constants import RESPONSE_TYPE_HEADER_MAPPING
 from ..base.exceptions import AlfredMissingAuthException
+from ..utils import logging
 
-from datetime import datetime
-import logging
 
 
 class HttpClient:
@@ -30,6 +34,7 @@ class HttpClient:
     auth_method: Optional[AuthMethod] = None
     token: Optional[Text] = None
     refresh_token_retry_count: int = 0
+    response_type: ResponseType = ResponseType.JSON
     rate_limit: Optional[Dict[str, Any]] = None
 
     def __init__(
@@ -50,11 +55,15 @@ class HttpClient:
             zero (default: 5).
             - config.max_retries: Maximum number of retries each request should
             attempt (default: 3).
+            - config.response_type {ResponseType}: Specifies the expected format of the response data (default: JSON).
         """
         self.base_url = base_url
         self.session = Session()
         self.auth_config = auth_config
         config = config or {}
+
+        # Initialize logger
+        self.logger = logging.getLogger("alfred-python")
 
         # Setup retry strategy
         self.max_retries = config.get("max_retries", 3)
@@ -72,6 +81,13 @@ class HttpClient:
         self.timeout = config.get("timeout", 5)
         if self.timeout <= 0:
             raise ValueError(f"Timeout ({self.timeout}) cannot be zero or less.")
+
+        # Set up response type
+        self.response_type = config.get("response_type", ResponseType.JSON)
+
+        # Validate that it's a valid response type.
+        if self.response_type not in RESPONSE_TYPE_HEADER_MAPPING.keys():
+            raise ValueError(f"Invalid response type: {self.response_type}")
 
         # Setup pool connections
         pool_size = 1
@@ -104,8 +120,9 @@ class HttpClient:
 
         # Setup interceptor
         self.session.hooks["response"].append(self.__response_interceptor)
+        self.session.hooks["response"].append(self.__logger_interceptor)
 
-    def __response_interceptor(self, response, *args, **kwargs):
+    def __response_interceptor(self, response: Response, *args, **kwargs):
         """
         Intercepts the response and raises an exception if the status code is not 200.
         """
@@ -238,9 +255,37 @@ class HttpClient:
         default_headers = {
             "Accept-Charset": "utf-8",
             "Content-Type": "application/json",
+            "Accept": RESPONSE_TYPE_HEADER_MAPPING.get(self.response_type),
         }
 
         return {**default_headers, **headers}
+
+    @staticmethod
+    def __parse_response(response: Response):
+        """
+        Parse the response based on the response type.
+
+        Args:
+        - response: HTTP response
+        """
+
+        # Get the response type based on the content type header.
+        accept = response.request.headers.get("Accept")
+        content_type = response.request.headers.get("Content-Type").split(';')[0]
+        reversed_response_type_header_mapping = {v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()}
+        response_type = reversed_response_type_header_mapping.get(content_type)
+
+        try:
+            if accept == 'application/xml' and response_type == ResponseType.JSON:
+                return ET.fromstring(response.text)
+            elif response_type == ResponseType.JSON:
+                return response.json()
+            elif response_type == ResponseType.TEXT:
+                return response.text
+            else:
+                return response.text
+        except Exception as e:
+            raise ValueError(f"Failed to parse response: {e}")
 
     def request(
         self,
@@ -300,7 +345,7 @@ class HttpClient:
         response = self.session.send(prepped_request, timeout=timeout)
 
         response.raise_for_status()
-        return response
+        return self.__parse_response(response), response
 
     def get(
         self,
@@ -409,3 +454,30 @@ class HttpClient:
         if self.should_throttle():
             logging.warning("Rate limit exceeded. Throttling request.")
             sleep(delay)
+
+    def __logger_interceptor(self, response: Response, *args, **kwargs):
+        """
+        Log the HTTP status code and response body of erroneous responses.
+        """
+
+        # Log detailed HTTP request information.
+        self.logger.debug({
+            "message": "HTTP request details.",
+            "method": response.request.method,
+            "url": response.request.url,
+            "headers": {k: v for k, v in response.request.headers.items() if
+                        k.lower() not in ["authorization", "cookie", "x-tagshelfapi-key"]},
+            "body": response.request.body,
+        })
+
+        # Log response details if not successful.
+        if not response.ok:
+            self.logger.debug({
+                "message": "HTTP response details.",
+                "method": response.request.method,
+                "url": response.request.url,
+                "status_code": response.status_code,
+                "body": response.text,
+                "response_size": len(response.content),
+                "response_content_type": response.headers.get('Content-Type'),
+            })
