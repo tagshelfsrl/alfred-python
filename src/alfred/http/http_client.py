@@ -33,6 +33,7 @@ class HttpClient:
     refresh_token_retry_count: int = 0
     response_type: ResponseType = ResponseType.JSON
     rate_limit: Optional[Dict[str, Any]] = None
+    __initial_throttle_delay: float
     throttle_delay: float
     throttle_threshold: int
     throttle_delay_backoff: float = 2
@@ -97,6 +98,7 @@ class HttpClient:
         # Setup throttle delay
         self.throttle_delay = config.get("throttle_delay", 1)
         self.throttle_threshold = config.get("throttle_threshold", 20)
+        self.__initial_throttle_delay = self.throttle_delay
 
         # Setup pool connections
         pool_size = 1
@@ -456,11 +458,16 @@ class HttpClient:
         # If the rate limit is 100 and the remaining is 80, we should not throttle.
         if self.rate_limit and self.throttle_threshold > 0:
             remaining = self.rate_limit.get("remaining", 0)
+            limit = self.rate_limit.get("limit", 0)
+
             if remaining <= 0:
                 self.throttle_delay = min(self.throttle_delay * self.throttle_delay_backoff, self.throttle_delay_max)
                 return True
             else:
-                limit = self.rate_limit.get("limit", 0)
+                # Reset the throttle delay in case the rate limit has been reset.
+                self.throttle_delay = self.__initial_throttle_delay
+
+                # Check if the remaining rate limit is less than the threshold.
                 return (remaining / limit) * 100 <= self.throttle_threshold
         return False
 
