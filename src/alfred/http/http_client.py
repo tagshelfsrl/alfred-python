@@ -251,17 +251,18 @@ class HttpClient:
         - response: HTTP response
         """
 
-        # Get the response type based on the Accept header.
+        # Get the response type based on the content type header.
         accept = response.request.headers.get("Accept")
+        content_type = response.request.headers.get("Content-Type").split(';')[0]
         reversed_response_type_header_mapping = {v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()}
-        response_type = reversed_response_type_header_mapping.get(accept)
+        response_type = reversed_response_type_header_mapping.get(content_type)
 
-        if response_type == ResponseType.JSON:
+        if accept == 'application/xml' and response_type == ResponseType.JSON:
+            return ET.fromstring(response.text)
+        elif response_type == ResponseType.JSON:
             return response.json()
         elif response_type == ResponseType.TEXT:
             return response.text
-        elif response_type == ResponseType.XML:
-            return ET.fromstring(response.text)
         else:
             return response.text
 
@@ -321,7 +322,7 @@ class HttpClient:
         response = self.session.send(prepped_request, timeout=timeout)
 
         response.raise_for_status()
-        return self.__parse_response(response)
+        return self.__parse_response(response), response
 
     def get(
         self,
