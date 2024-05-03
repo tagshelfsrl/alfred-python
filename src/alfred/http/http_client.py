@@ -7,6 +7,8 @@ from time import time
 from typing import Dict, Any
 from urllib.parse import quote
 from uuid import uuid4
+from xml.etree import ElementTree as ET
+
 
 # 3rd party imports
 from requests import Session, Request, PreparedRequest, Response
@@ -259,7 +261,7 @@ class HttpClient:
         elif response_type == ResponseType.TEXT:
             return response.text
         elif response_type == ResponseType.XML:
-            return response.content
+            return ET.fromstring(response.text)
         else:
             return response.text
 
