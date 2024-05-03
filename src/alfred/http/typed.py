@@ -45,3 +45,5 @@ class HttpConfiguration(TypedDict):
     timeout: Optional[float]
     max_retries: Optional[int]
     response_type: Optional[ResponseType]
+    throttle_delay: Optional[float]
+    throttle_threshold: Optional[int]
