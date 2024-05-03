@@ -1,4 +1,4 @@
-## Overview
+# Overview
 
 Welcome to the `alfred-python` SDK, the official Python library for interfacing with Alfred, your intelligent process automation platform. This SDK provides a simple and efficient way to integrate Alfred's capabilities into your Python applications.
 
@@ -20,6 +20,91 @@ auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
 client = AlfredClient(config, auth_config)
 
 response = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(response.json())
+```
+
+### Data Points
+
+Data Points are the core of Alfred's platform and represent data that you want to extract. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/metadata).
+
+> [!IMPORTANT]  
+> Data Points where previously known as Metadata.
+
+#### Get Data Point by File ID
+
+```python
+# Get a data point by file ID
+response = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(response.json())
+```
+
+### Sessions
+
+A Session is a mechanism designed for asynchronous file uploads. It serves as a container or grouping for files that are uploaded at different times or from various sources, but are all part of a single Job. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/deferred-session).
+  
+#### Get session by ID
+
+```python
+# Get a session by ID
+response = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(response.json())
+```
+
+#### Create session
+
+```python
+# Create a session
+response = client.sessions.create()
+print(response.json())
+```
+
+### Jobs
+
+A Job represents a single unit of work that group one or more Files within Alfred. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/job).
+
+#### Get job by ID
+
+```python
+# Get a job by ID
+response = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+print(response.json())
+```
+
+#### Create job
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| session_id | string | Session ID |
+| metadata | any | Metadata of the job |
+| propagate_metadata | boolean | If `true` ensures that the provided metadata at the Job level is attached to all the specified Files. |
+| merge | boolean | If `true`, when all provided Files are either images or PDFs, the system combines them into a single file for the purpose of processing. |
+| decompose | boolean | If `true`, when the provided File is a PDF, the system will decompose it into individual pages for processing. |
+| channel | string | Channel |
+| parent_file_prefix | string | The `parent_file_prefix` parameter is used to specify a virtual folder destination for the uploaded files, diverging from the default 'Inbox' folder. By setting this parameter, users can organize files into specific virtual directories, enhancing file management and accessibility within Alfred's system. |
+| page_rotation | number | Page rotation |
+| container | string | Virtual container where the referenced remote file is located.|
+| file_name | string | Unique name of the file within an object storage source.|
+| file_names | string[] | Array of unique names of the files within an object storage source.|
+
+```python
+job = {
+   "session_id": "session-id",
+   "propagate_metadata": True,
+   "merge": True,
+   "decompose": True,
+   "metadata": {
+      "key": "value",
+   },
+   "channel": "channel",
+   "parent_file_prefix": "prefix",
+   "page_rotation": 90,
+   "container": "container",
+   "file_name": "file-name",
+   "file_names": ["file-name-1", "file-name-2"],
+}
+
+# Create a job
+response = client.jobs.create(job)
 print(response.json())
 ```
 
