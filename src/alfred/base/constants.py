@@ -1,4 +1,4 @@
-from alfred.http.typed import ResponseType
+from src.alfred.http.typed import ResponseType
 
 # Response type/header mapping
 RESPONSE_TYPE_HEADER_MAPPING = {
