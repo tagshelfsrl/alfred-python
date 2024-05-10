@@ -171,6 +171,46 @@ In this SDK, we implement automatic retries to enhance the reliability of networ
 
 For non-idempotent methods like POST and PATCH, the SDK does not perform retries by default because doing so could potentially result in unwanted side effects or duplicate operations. If you need to enable retries for these methods under specific circumstances, please handle them cautiously in your application logic.
 
+## Real-time Events
+
+The `alfred-python` library provides a way to listen to events emitted by Alfred IPA in real-time through a websockets implementation. This feature is particularly useful when you need to monitor the progress of a Job, File, or any other event that occurs within the Alfred platform. To see more information visit our [official documentation](https://docs.tagshelf.dev).
+
+### Getting started
+
+To get started, you need to create an instance of the `AlfredRealTimeClient` class.
+
+```python
+from src.alfred.realtime import AlfredRealTimeClient
+from src.alfred.base.config import Configuration
+from src.alfred.http.typed import AuthConfiguration
+
+config = Configuration.v1()
+
+auth_config = AuthConfiguration({
+    "api_key": "AXXXXXXXXXXXXXXXXXXXXXX"
+})
+
+client = AlfredRealTimeClient(config, auth_config, verbose=True)
+```
+
+### File Events
+These events are specifically designed to respond to a variety of actions or status changes related to Files. To see more details about File events, visit our [official documentation](https://docs.tagshelf.dev/event-api/fileevents).
+```python 
+client.on_file_event(lambda data: print(data))
+```
+
+### Job Events
+Alfred performs asynchronous document classification, extraction, and indexing on a variety of file types. The events detailed here offer insights into how a Job progresses, fails, retries, or completes its tasks. To see more details about Job events, visit our [official documentation](https://docs.tagshelf.dev/event-api/jobevents).
+
+```python
+client.on_job_event(lambda data: print(data))
+```
+
+### Custom Events
+This enables you to select the specific event you wish to monitor. It's particularly beneficial when new events are introduced that have not yet received official support within the library.
+```python
+client.on("custom-event", lambda data: print(data))
+```
 ## Development Setup
 
 ### Setting up the development environment

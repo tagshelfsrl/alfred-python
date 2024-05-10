@@ -8,10 +8,10 @@ from src.alfred.http.typed import AuthConfiguration
 from src.alfred.utils import logging
 
 
-class AlfredRealtimeClient:
+class AlfredRealTimeClient:
     def __init__(self, config: ConfigurationDict, auth_config: AuthConfiguration, verbose=False):
         """
-        Initializes the AlfredRealtimeClient class.
+        Initializes the AlfredRealTimeClient class.
 
         Args:
            config (ConfigurationDict): The configuration dictionary.
