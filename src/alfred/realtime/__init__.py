@@ -46,7 +46,7 @@ class AlfredRealtimeClient:
         Handles the 'connect' event.
         """
         if self.verbose:
-            self.logger.debug(f"Connected successfully to: {self.base_url}")
+            self.logger.debug(f"Successfully connected to: {self.base_url}")
 
     def on_disconnect(self):
         """
