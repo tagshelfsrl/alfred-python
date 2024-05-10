@@ -19,6 +19,7 @@ dependencies = [
   "pydantic >= 2.0",
   "pydantic-settings >= 2.0",
   "requests >= 2.30",
+  "python-socketio >= 5.11"
 ]
 
 [project.urls]
