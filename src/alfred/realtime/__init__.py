@@ -1,6 +1,7 @@
 # 3rd Party Imports
 import socketio
 
+import src.alfred.exceptions
 from src.alfred.base.config import ConfigurationDict
 from src.alfred.base.constants import EventName
 from src.alfred.http.typed import AuthConfiguration
@@ -34,7 +35,11 @@ class AlfredRealtimeClient:
         # Establish connection with verbose output if enabled
         if self.verbose:
             self.logger.debug("Attempting to establish a connection...")
-        self.socket.connect(f"{self.base_url}?apiKey={auth_config.get('api_key')}")
+        try:
+            self.socket.connect(f"{self.base_url}?apiKey={auth_config.get('api_key')}")
+        except Exception as err:
+            raise src.alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
+
 
     def on_connect(self):
         """
