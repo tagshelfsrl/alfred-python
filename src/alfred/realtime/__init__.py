@@ -28,9 +28,9 @@ class AlfredRealTimeClient:
         self.logger = logging.getLogger("alfred-python")
 
         # Subscribe to connection life-cycle events.
-        self.socket.on('connect', self.on_connect)
-        self.socket.on('disconnect', self.on_disconnect)
-        self.socket.on('connect_error', self.on_connect_error)
+        self.socket.on('connect', self.__on_connect)
+        self.socket.on('disconnect', self.__on_disconnect)
+        self.socket.on('connect_error', self.__on_connect_error)
 
         # Establish connection with verbose output if enabled
         if self.verbose:
@@ -40,22 +40,21 @@ class AlfredRealTimeClient:
         except Exception as err:
             raise src.alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
 
-
-    def on_connect(self):
+    def __on_connect(self):
         """
         Handles the 'connect' event.
         """
         if self.verbose:
             self.logger.debug(f"Successfully connected to: {self.base_url}")
 
-    def on_disconnect(self):
+    def __on_disconnect(self):
         """
         Handles the 'disconnect' event.
         """
         if self.verbose:
             self.logger.debug("Disconnected from the server.")
 
-    def on_connect_error(self, err):
+    def __on_connect_error(self, err):
         """
         Handles the 'connect_error' event.
 
@@ -67,7 +66,7 @@ class AlfredRealTimeClient:
         self.disconnect()
         raise Exception(f"Failed to connect to {self.base_url}: {err}")
 
-    def _callback(self, event: str, callback):
+    def __callback(self, event: str, callback):
         """
         Wrapper function to subscribe a specific event.
 
@@ -89,7 +88,7 @@ class AlfredRealTimeClient:
         Args:
             callback (function): The callback function to handle the event.
         """
-        self._callback(EventName.FILE_EVENT.value, callback)
+        self.__callback(EventName.FILE_EVENT.value, callback)
 
     def on_job_event(self, callback):
         """
@@ -98,7 +97,7 @@ class AlfredRealTimeClient:
          Args:
              callback (function): The callback function to handle the event.
          """
-        self._callback(EventName.JOB_EVENT.value, callback)
+        self.__callback(EventName.JOB_EVENT.value, callback)
 
     def on(self, event: str, callback):
         """
@@ -108,7 +107,7 @@ class AlfredRealTimeClient:
             event (str): The event name.
             callback (function): The callback function to handle the event.
         """
-        self._callback(event, callback)
+        self.__callback(event, callback)
 
     def disconnect(self):
         """
