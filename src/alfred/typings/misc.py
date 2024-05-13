@@ -1,10 +1,10 @@
 # Native imports
-from typing import TypedDict
+from typing import TypedDict, Union
 
 
 # Typed dictionaries
 class LoggingOptions(TypedDict):
-    level: int
+    level: Union[str, int]
     name: str
     format: str
     papertrail_host: str

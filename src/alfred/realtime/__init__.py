@@ -5,7 +5,7 @@ import src.alfred.exceptions
 from src.alfred.base.config import ConfigurationDict
 from src.alfred.base.constants import EventName
 from src.alfred.http.typed import AuthConfiguration
-from src.alfred.utils import logging
+from src.alfred.utils import logging, setup_logger
 
 
 class AlfredRealTimeClient:
@@ -26,6 +26,12 @@ class AlfredRealTimeClient:
 
         # Initialize logger
         self.logger = logging.getLogger("alfred-python")
+        if self.logger.level == logging.NOTSET:
+            setup_logger({
+                "level": "DEBUG" if verbose else "INFO",
+                "name": "alfred-python"
+            })
+        print(self.logger.level)
 
         # Subscribe to connection life-cycle events.
         self.socket.on('connect', self.__on_connect)
@@ -44,15 +50,13 @@ class AlfredRealTimeClient:
         """
         Handles the 'connect' event.
         """
-        if self.verbose:
-            self.logger.debug(f"Successfully connected to: {self.base_url}")
+        self.logger.info(f"Successfully connected to: {self.base_url}")
 
     def __on_disconnect(self):
         """
         Handles the 'disconnect' event.
         """
-        if self.verbose:
-            self.logger.debug("Disconnected from the server.")
+        self.logger.info("Disconnected from the server.")
 
     def __on_connect_error(self, err):
         """
@@ -61,8 +65,7 @@ class AlfredRealTimeClient:
         Args:
           err (str): The error message.
         """
-        if self.verbose:
-            self.logger.debug("Connection error:  %s", err)
+        self.logger.info("Connection error:  %s", err)
         self.disconnect()
         raise Exception(f"Failed to connect to {self.base_url}: {err}")
 
@@ -113,6 +116,5 @@ class AlfredRealTimeClient:
         """
         Disconnects client from the server.
         """
-        if self.verbose:
-            self.logger.debug("Closing connection...")
+        self.logger.info("Closing connection...")
         self.socket.disconnect()
