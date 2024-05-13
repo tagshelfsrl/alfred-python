@@ -1,5 +1,6 @@
 # Native imports
 import os
+import json
 from typing import Text
 from io import BufferedReader
 from urllib.parse import unquote
@@ -48,13 +49,17 @@ class Files(FilesBase):
         if not filename:
             raise AlfredMissingArgument("filename must be provided.")
 
-        files = [("file", (filename, file, "application/octet-stream"))]
-
-        data = {key: value for key, value in payload.items() if key != "file"}
+        files = [
+            ("file", (filename, file, "application/octet-stream")),
+            ("session_id", (None, payload["session_id"], "text/plain")),
+            (
+                "metadata",
+                (None, json.dumps(payload.get("metadata")), "application/json"),
+            ),
+        ]
 
         parsed_resp, _ = self.http_client.post(
             "/api/file/uploadfile",
-            data=data,
             files=files,
             headers={"content-type": None},
         )
