@@ -1,0 +1,95 @@
+name: On Merge
+
+on:
+  push:
+    branches:
+      - master
+      - development
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout alfred-python
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+
+      - name: Build package
+        run: make test && make build
+
+  release:
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      environment: ${{ steps.target.outputs.environment }}
+      pypi_url: ${{ steps.target.outputs.url }}
+    steps:
+      # - uses: googleapis/release-please-action@v4
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          release-type: python
+          token: ${{ secrets.PAT_TOKEN }}
+          target-branch: ${{ github.ref_name }}
+      - name: determine target environment
+        id: target
+        run: |
+          TARGET=staging
+          URL=https://test.pypi.org/legacy/
+          if [[ ${{ github.ref }} =~ /^refs\/heads\/main|master/gi ]]; then
+            TARGET=production
+            URL=https://upload/pypi.org/legacy/
+          fi
+          echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deploying to $TARGET from branch ${{ GITHUB.REF }}"
+          echo "Pypi $URL"
+
+  publish:
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      id-token: write
+    environment:
+      name: ${{ needs.release.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ needs.release.outputs.release_created }}
+
+      - uses: actions/setup-python@v4
+        if: ${{ needs.release.outputs.release_created }}
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        if: ${{ needs.release.outputs.release_created }}
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+
+      - name: Build package
+        if: ${{ needs.release.outputs.release_created }}
+        run: make test && make build
+
+      - name: Publish package
+        if: ${{ needs.release.outputs.release_created }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ needs.release.outputs.pypi_url }}
+
