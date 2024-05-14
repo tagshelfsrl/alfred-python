@@ -1,6 +1,7 @@
 .PHONY: clean build test
 
 clean:
+	rm -rf build/
 	rm -rf dist/
 	rm -rf src/*.egg-info/
 	rm -rf src/alfred/__pycache__/
