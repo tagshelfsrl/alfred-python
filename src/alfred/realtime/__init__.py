@@ -1,9 +1,13 @@
+# Native Imports
+from typing import Union
+
 # 3rd Party Imports
 import socketio
 
+# Project Imports
 import src.alfred.exceptions
 from src.alfred.base.config import ConfigurationDict
-from src.alfred.base.constants import EventName
+from src.alfred.base.constants import EventType, FileEvent, JobEvent
 from src.alfred.http.typed import AuthConfiguration
 from src.alfred.utils import logging, setup_logger
 
@@ -69,7 +73,7 @@ class AlfredRealTimeClient:
         self.disconnect()
         raise Exception(f"Failed to connect to {self.base_url}: {err}")
 
-    def __callback(self, event: str, callback):
+    def __callback(self, event: Union[FileEvent, JobEvent, EventType], callback):
         """
         Wrapper function to subscribe a specific event.
 
@@ -86,25 +90,25 @@ class AlfredRealTimeClient:
 
     def on_file_event(self, callback):
         """
-        Handles the 'file_event' event.
+        Listens to all file-related events.
 
         Args:
             callback (function): The callback function to handle the event.
         """
-        self.__callback(EventName.FILE_EVENT.value, callback)
+        self.__callback(EventType.FILE_EVENT.value, callback)
 
     def on_job_event(self, callback):
         """
-         Handles the 'job_event' event.
+         Listens to all job-related events.
 
          Args:
              callback (function): The callback function to handle the event.
          """
-        self.__callback(EventName.JOB_EVENT.value, callback)
+        self.__callback(EventType.JOB_EVENT.value, callback)
 
-    def on(self, event: str, callback):
+    def on(self, event: Union[FileEvent, JobEvent], callback):
         """
-        Handles a specific event.
+        Listens to a specific event.
 
         Args:
             event (str): The event name.
