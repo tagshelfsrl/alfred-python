@@ -2,7 +2,9 @@ name: On PR
 
 on:
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - development
 
 jobs:
   validate:
@@ -44,3 +46,4 @@ jobs:
 
       - name: Build package
         run: make test && make build
+
