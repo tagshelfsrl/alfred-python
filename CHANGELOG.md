@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/tagshelfsrl/alfred-python/compare/v0.2.0...v0.2.1) (2024-05-14)
+
+
+### Bug Fixes
+
+* adds pypi test url for staging deployments ([495db8a](https://github.com/tagshelfsrl/alfred-python/commit/495db8a1159b7a2d9b82fcaa094330bf3bda1365))
+* use old release-please ([577c888](https://github.com/tagshelfsrl/alfred-python/commit/577c888e97f4593f5477d80b7f95393acd49e9a4))
+
 ## [0.2.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.1.1...v0.2.0) (2024-05-14)
 
 
