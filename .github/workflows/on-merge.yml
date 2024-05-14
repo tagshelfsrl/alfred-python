@@ -58,6 +58,8 @@ jobs:
     needs: [release]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      deployment: read
       id-token: write
     environment:
       name: ${{ needs.release.outputs.environment }}
