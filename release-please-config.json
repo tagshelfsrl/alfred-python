@@ -1,5 +1,5 @@
 {
-  "prerelease-type": "development",
+  "prerelease-type": "beta",
   "prerelease": true,
   "packages": {
     ".": {
