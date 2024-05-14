@@ -1,4 +1,5 @@
 {
+  "versioning": "prerelease",
   "prerelease-type": "beta",
   "prerelease": true,
   "packages": {
