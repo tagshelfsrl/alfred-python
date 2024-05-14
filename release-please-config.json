@@ -3,7 +3,9 @@
   "prerelease": true,
   "packages": {
     ".": {
-      "release-type": "python"
+      "release-type": "python",
+      "prerelease-type": "beta",
+      "prerelease": true
     }
   }
 }
