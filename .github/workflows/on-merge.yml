@@ -47,7 +47,7 @@ jobs:
           target-branch: ${{ github.ref_name }}
           versioning-strategy: prerelease
           prerelease-type: beta
-          prerelease: ${{ github.ref_name == "development" }}
+          prerelease: ${{ github.ref_name == 'development' }}
       - name: determine target environment
         id: target
         run: |
