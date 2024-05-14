@@ -49,10 +49,10 @@ jobs:
         id: target
         run: |
           TARGET=staging
-          URL=https://test.pypi.org/p/alfred-python/
+          URL=https://test.pypi.org/legacy/
           if [[ ${{ github.ref }} =~ /^refs\/heads\/main|master/gi ]]; then
             TARGET=production
-            URL=https://pypi.org/p/alfred-python/
+            URL=https://upload/pypi.org/legacy/
           fi
           echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
