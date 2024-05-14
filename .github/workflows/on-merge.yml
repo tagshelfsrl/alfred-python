@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployment: read
+      deployments: read
       id-token: write
     environment:
       name: ${{ needs.release.outputs.environment }}
