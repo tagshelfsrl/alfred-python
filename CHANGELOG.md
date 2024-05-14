@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/tagshelfsrl/alfred-python/compare/v0.2.2...v0.2.3) (2024-05-14)
+
+
+### Bug Fixes
+
+* pypi wrong upload urls ([2181ece](https://github.com/tagshelfsrl/alfred-python/commit/2181eced8aa262a0f9bb6398d0711c2516fbe8b3))
+
 ## [0.2.2](https://github.com/tagshelfsrl/alfred-python/compare/v0.2.1...v0.2.2) (2024-05-14)
 
 
