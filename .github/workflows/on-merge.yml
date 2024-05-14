@@ -36,9 +36,9 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       environment: ${{ steps.target.outputs.environment }}
+      pypi_url: ${{ steps.target.outputs.url }}
     steps:
-      # - uses: googleapis/release-please-action@v4
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: python
@@ -48,12 +48,15 @@ jobs:
         id: target
         run: |
           TARGET=staging
+          URL=https://test.pypi.org/p/alfred-python
           if [[ ${{ github.ref }} =~ /^refs\/heads\/main|master/gi ]]; then
             TARGET=production
+            URL=https://pypi.org/p/alfred-python
           fi
-
           echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deploying to $TARGET from branch ${{ GITHUB.REF }}"
+          echo "Pypi $URL"
 
   publish:
     needs: [release]
@@ -86,4 +89,6 @@ jobs:
       - name: Publish package
         if: ${{ needs.release.outputs.release_created }}
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ needs.release.outputs.pypi_url }}
 
