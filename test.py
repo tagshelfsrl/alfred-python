@@ -2,7 +2,8 @@ import unittest
 
 
 class TestMain(unittest.TestCase):
-    pass
+    def test_placeholder(self):
+        pass
 
 
 if __name__ == '__main__':
