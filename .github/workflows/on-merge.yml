@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - development
 
 jobs:
   test:
@@ -15,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Node
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.8"
 
@@ -45,9 +44,6 @@ jobs:
           release-type: python
           token: ${{ secrets.PAT_TOKEN }}
           target-branch: ${{ github.ref_name }}
-          versioning-strategy: prerelease
-          prerelease-type: beta
-          prerelease: ${{ github.ref_name == 'development' }}
       - name: determine target environment
         id: target
         run: |
@@ -75,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
         if: ${{ needs.release.outputs.release_created }}
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         if: ${{ needs.release.outputs.release_created }}
         with:
           python-version: "3.8"

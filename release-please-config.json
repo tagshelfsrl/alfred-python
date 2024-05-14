@@ -1,9 +1,6 @@
 {
+  "release-type": "python",
   "packages": {
-    ".": {
-      "versioning-strategy": "prerelease",
-      "prerelease-type": "beta",
-      "release-type": "python"
-    }
+    ".": {}
   }
 }
