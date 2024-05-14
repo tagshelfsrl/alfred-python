@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/tagshelfsrl/alfred-python/compare/v0.2.1...v0.2.2) (2024-05-14)
+
+
+### Bug Fixes
+
+* adds missing trailing slash ([3d5fb17](https://github.com/tagshelfsrl/alfred-python/commit/3d5fb17e72f692983122389e79e415e4195de875))
+
 ## [0.2.1](https://github.com/tagshelfsrl/alfred-python/compare/v0.2.0...v0.2.1) (2024-05-14)
 
 
