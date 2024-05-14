@@ -50,7 +50,7 @@ jobs:
         run: |
           TARGET=staging
           URL=https://test.pypi.org/legacy/
-          if [[ ${{ github.ref }} =~ /^refs\/heads\/main|master/gi ]]; then
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
             TARGET=production
             URL=https://upload/pypi.org/legacy/
           fi
