@@ -14,7 +14,7 @@ Check out this simple example to get up and running:
 from alfred.rest import AlfredClient
 from alfred.base.config import Configuration
 
-config = Configuration.v1()
+config = Configuration.default()
 auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
 
 client = AlfredClient(config, auth_config)
@@ -170,6 +170,89 @@ In this SDK, we implement automatic retries to enhance the reliability of networ
 - `OPTIONS`: Retrieves supported communication options for a given URL or server without causing any side effects.
 
 For non-idempotent methods like POST and PATCH, the SDK does not perform retries by default because doing so could potentially result in unwanted side effects or duplicate operations. If you need to enable retries for these methods under specific circumstances, please handle them cautiously in your application logic.
+
+## Real-time Events
+
+The `alfred-python` library provides a way to listen to events emitted by Alfred IPA in real-time through a websockets implementation. This feature is particularly useful when you need to monitor the progress of a Job, File, or any other event that occurs within the Alfred platform. To see more information visit our [official documentation](https://docs.tagshelf.dev).
+
+### Getting started
+
+To get started, you need to create an instance of the `AlfredRealTimeClient` class.
+
+```python
+from src.alfred.realtime import AlfredRealTimeClient
+from src.alfred.base.config import Configuration
+from src.alfred.http.typed import AuthConfiguration
+
+config = Configuration.default()
+
+auth_config = AuthConfiguration({
+    "api_key": "AXXXXXXXXXXXXXXXXXXXXXX"
+})
+
+client = AlfredRealTimeClient(config, auth_config, verbose=True)
+```
+
+### File Events
+These events are specifically designed to respond to a variety of actions or status changes related to Files. To see more details about File events, visit our [official documentation](https://docs.tagshelf.dev/event-api/fileevents).
+```python
+# Listen to all File events
+client.on_file_event(lambda data: print(data))
+```
+
+### Job Events
+Alfred performs asynchronous document classification, extraction, and indexing on a variety of file types. The events detailed here offer insights into how a Job progresses, fails, retries, or completes its tasks. To see more details about Job events, visit our [official documentation](https://docs.tagshelf.dev/event-api/jobevents).
+
+```python
+# Listen to all Job events
+client.on_job_event(lambda data: print(data))
+```
+
+### Specific Events
+
+This enables you to select a specific event you wish to monitor from the list of supported events.
+It's particularly useful when you want to listen to a specific event instead of all events of a particular type.
+
+Here's an example of how to listen to a specific event:
+
+```python
+from src.alfred.base.constants import FileEvent, JobEvent
+
+# Listen to the specific File Done event
+client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))
+
+# Listen to the specific Job Finished event
+client.on(JobEvent.JOB_FINISHED_EVENT.value, lambda data: print(data))
+```
+
+Here is a list of all supported events:
+
+| Event Type | Event Name | Description |
+| --- | --- | --- |
+| FileEvent | `FILE_ADD_TO_JOB_EVENT` | Triggered when a file is added to a job for processing. |
+| FileEvent | `FILE_CATEGORY_CREATE_EVENT` | Occurs when a new category is created for a file. |
+| FileEvent | `FILE_CATEGORY_DELETE_EVENT` | Signals the deletion of a file's category. |
+| FileEvent | `FILE_CHANGE_TAG_EVENT` | Indicates a change in the tag associated with a file. |
+| FileEvent | `FILE_DONE_EVENT` | Marks the completion of file processing. |
+| FileEvent | `FILE_EXTRACTED_DATA_CREATE_EVENT` | Triggered when new data is extracted from a file. |
+| FileEvent | `FILE_EXTRACTED_DATA_DELETE_EVENT` | Occurs when extracted data from a file is deleted. |
+| FileEvent | `FILE_FAILED_EVENT` | Indicates a failure in file processing. |
+| FileEvent | `FILE_MOVE_EVENT` | Signals the movement of a file within the system. |
+| FileEvent | `FILE_MOVE_TO_PENDING_EVENT` | Triggered when a file is moved to a pending state. |
+| FileEvent | `FILE_MOVE_TO_RECYCLE_BIN_EVENT` | Indicates movement of a file to the recycle bin. |
+| FileEvent | `FILE_PROPERTY_CREATE_EVENT` | Reflects the creation of a file property. |
+| FileEvent | `FILE_PROPERTY_DELETE_EVENT` | Signals the deletion of a file property. |
+| FileEvent | `FILE_REMOVE_TAG_EVENT` | Signals the removal of a tag from a file. |
+| FileEvent | `FILE_STATUS_UPDATE_EVENT` | Indicates an update in the file's status. |
+| FileEvent | `FILE_UPDATE_EVENT` | Triggered when a file is updated in any manner. |
+| JobEvent | `JOB_CREATE_EVENT` | Triggered when a new job is instantiated for file operations. |
+| JobEvent | `JOB_EXCEEDED_RETRIES_EVENT` | Fires when job exceeds maximum retry attempts for a stage. |
+| JobEvent | `JOB_FAILED_EVENT` | Occurs when a job halts due to an unrecoverable error. |
+| JobEvent | `JOB_FINISHED_EVENT` | Triggered when job successfully completes all workflow stages. |
+| JobEvent | `JOB_INVALID_EVENT` | Fires when job fails initial validation of input files or parameters. |
+| JobEvent | `JOB_RETRY_EVENT` | Triggered when job retries a stage after a recoverable failure. |
+| JobEvent | `JOB_STAGE_UPDATE_EVENT` | Occurs when job transitions from one workflow stage to another. |
+| JobEvent | `JOB_START_EVENT` | Triggered when job begins its workflow and state machine. |
 
 ## Development Setup
 
