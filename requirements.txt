@@ -14,7 +14,7 @@ pyproject_hooks==1.1.0
 python-dotenv==1.0.1
 python-engineio==4.9.0
 python-socketio==5.11.2
-requests==2.31.0
+requests==2.32.0
 simple-websocket==1.0.0
 tomli==2.0.1
 typing_extensions==4.11.0
