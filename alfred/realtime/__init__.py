@@ -5,11 +5,11 @@ from typing import Union
 import socketio
 
 # Project Imports
-import src.alfred.exceptions
-from src.alfred.base.config import ConfigurationDict
-from src.alfred.base.constants import EventType, FileEvent, JobEvent
-from src.alfred.http.typed import AuthConfiguration
-from src.alfred.utils import logging, setup_logger
+import alfred.exceptions
+from alfred.base.config import ConfigurationDict
+from alfred.base.constants import EventType, FileEvent, JobEvent
+from alfred.http.typed import AuthConfiguration
+from alfred.utils import logging, setup_logger
 
 
 class AlfredRealTimeClient:
@@ -48,7 +48,7 @@ class AlfredRealTimeClient:
         try:
             self.socket.connect(f"{self.base_url}?apiKey={auth_config.get('api_key')}")
         except Exception as err:
-            raise src.alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
+            raise alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
 
     def __on_connect(self):
         """

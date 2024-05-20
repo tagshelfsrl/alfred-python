@@ -2,8 +2,8 @@
 from typing import Text
 
 # Project imports
-from src.alfred.http.http_client import HttpClient
-from src.alfred.rest.sessions.base import SessionsBase
+from alfred.http.http_client import HttpClient
+from alfred.rest.sessions.base import SessionsBase
 
 
 class Sessions(SessionsBase):

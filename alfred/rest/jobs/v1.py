@@ -2,9 +2,9 @@
 from typing import Text
 
 # Project imports
-from src.alfred.rest.jobs.typed import CreateJobDict
-from src.alfred.http.http_client import HttpClient
-from src.alfred.rest.jobs.base import JobsBase
+from alfred.rest.jobs.typed import CreateJobDict
+from alfred.http.http_client import HttpClient
+from alfred.rest.jobs.base import JobsBase
 
 
 class Jobs(JobsBase):

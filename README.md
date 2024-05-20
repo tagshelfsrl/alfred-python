@@ -12,7 +12,7 @@ Check out this simple example to get up and running:
 
 ```python
 from alfred.rest import AlfredClient
-from alfred.base.config import Configuration
+from alfred.base import Configuration
 
 config = Configuration.default()
 auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
@@ -180,9 +180,9 @@ The `alfred-python` library provides a way to listen to events emitted by Alfred
 To get started, you need to create an instance of the `AlfredRealTimeClient` class.
 
 ```python
-from src.alfred.realtime import AlfredRealTimeClient
-from src.alfred.base.config import Configuration
-from src.alfred.http.typed import AuthConfiguration
+from alfred import AlfredRealTimeClient
+from alfred.base import Configuration
+from alfred import AuthConfiguration
 
 config = Configuration.default()
 
@@ -216,7 +216,7 @@ It's particularly useful when you want to listen to a specific event instead of 
 Here's an example of how to listen to a specific event:
 
 ```python
-from src.alfred.base.constants import FileEvent, JobEvent
+from alfred.base import FileEvent, JobEvent
 
 # Listen to the specific File Done event
 client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))

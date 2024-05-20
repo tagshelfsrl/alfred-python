@@ -1,6 +1,6 @@
 # Native imports
 from typing import Text, Any
-from src.alfred.rest.jobs.typed import CreateJobDict
+from alfred.rest.jobs.typed import CreateJobDict
 from abc import ABC, abstractmethod
 
 

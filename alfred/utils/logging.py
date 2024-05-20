@@ -6,7 +6,7 @@ from logging.handlers import SysLogHandler
 from typing import Union
 
 # Project imports
-from src.alfred.typings import LoggingOptions
+from alfred.typings import LoggingOptions
 
 
 def setup_logger(options: LoggingOptions):

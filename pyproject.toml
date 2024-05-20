@@ -27,5 +27,4 @@ dependencies = [
 homepage = "https://github.com/tagshelfsrl/alfred-python"
 
 [tool.setuptools.packages.find]
-where = ["src"]
 include = ["alfred", "alfred.*"]

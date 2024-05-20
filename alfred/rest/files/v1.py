@@ -2,13 +2,12 @@
 import os
 import json
 from typing import Text
-from io import BufferedReader
 from urllib.parse import unquote
 
 # Project imports
-from src.alfred.rest.files.typed import *  # pylint: disable=W0401, W0614
-from src.alfred.http.http_client import HttpClient
-from src.alfred.base.exceptions import AlfredMissingArgument
+from alfred.rest.files.typed import *  # pylint: disable=W0401, W0614
+from alfred.http.http_client import HttpClient
+from alfred.base.exceptions import AlfredMissingArgument
 from .base import FilesBase
 from .typed import FileDetailsResponse
 

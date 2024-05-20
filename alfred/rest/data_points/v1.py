@@ -2,8 +2,8 @@
 from typing import Text
 
 # Project imports
-from src.alfred.http.http_client import HttpClient
-from src.alfred.rest.data_points.base import DataPointsBase
+from alfred.http.http_client import HttpClient
+from alfred.rest.data_points.base import DataPointsBase
 
 
 class DataPoints(DataPointsBase):
