@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.4.0...v0.5.0) (2024-05-20)
+
+
+### Features
+
+* implement realtime functionality. ([#18](https://github.com/tagshelfsrl/alfred-python/issues/18)) ([1b0d070](https://github.com/tagshelfsrl/alfred-python/commit/1b0d070932db0d46bef20546a78bdb70a4ccebf4))
+
+
+### Bug Fixes
+
+* move the alfred package up in the hierarchy out of the src/ folder. ([#36](https://github.com/tagshelfsrl/alfred-python/issues/36)) ([fa5a845](https://github.com/tagshelfsrl/alfred-python/commit/fa5a8452b573ea09c1ea66438b84082f257a727f))
+* release-please-action org rename and typo ([#37](https://github.com/tagshelfsrl/alfred-python/issues/37)) ([c0fd44c](https://github.com/tagshelfsrl/alfred-python/commit/c0fd44cc32581323dad5c635b9a74a304157908d))
+
 ## [0.4.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.3.0...v0.4.0) (2024-05-14)
 
 
