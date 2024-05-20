@@ -2,13 +2,13 @@
 from typing import Optional
 
 # Project imports
-from src.alfred.base.config import ConfigurationDict
-from src.alfred.http.http_client import HttpClient
-from src.alfred.http.typed import AuthConfiguration, HttpConfiguration
-from src.alfred.rest.data_points import DataPointsBase, DataPointsFactory
-from src.alfred.rest.sessions import SessionsBase, SessionsFactory
-from src.alfred.rest.jobs import JobsBase, JobsFactory
-from src.alfred.rest.files import FilesBase, FilesFactory
+from alfred.base.config import ConfigurationDict
+from alfred.http.http_client import HttpClient
+from alfred.http.typed import AuthConfiguration, HttpConfiguration
+from alfred.rest.data_points import DataPointsBase, DataPointsFactory
+from alfred.rest.sessions import SessionsBase, SessionsFactory
+from alfred.rest.jobs import JobsBase, JobsFactory
+from alfred.rest.files import FilesBase, FilesFactory
 
 
 class AlfredClient:

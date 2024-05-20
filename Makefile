@@ -3,8 +3,8 @@
 clean:
 	rm -rf build/
 	rm -rf dist/
-	rm -rf src/*.egg-info/
-	rm -rf src/alfred/__pycache__/
+	rm -rf *.egg-info/
+	rm -rf alfred/__pycache__/
 
 build:
 	python -m build
