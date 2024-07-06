@@ -1,7 +1,7 @@
 annotated-types==0.6.0
 bidict==0.23.1
 build==1.2.1
-certifi==2024.2.2
+certifi==2024.7.4
 charset-normalizer==3.3.2
 h11==0.14.0
 idna==3.7
