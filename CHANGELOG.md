@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.5.0...v0.6.0) (2025-03-24)
+
+
+### Features
+
+* enhance AlfredRealTimeClient with error handling and connection callbacks ([#44](https://github.com/tagshelfsrl/alfred-python/issues/44)) ([ac7aed5](https://github.com/tagshelfsrl/alfred-python/commit/ac7aed5747c2eff300460c2c5b0ff31c808c9f5c))
+
 ## [0.5.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.4.0...v0.5.0) (2024-05-20)
 
 
