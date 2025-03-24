@@ -55,6 +55,16 @@ result = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
+#### Get paginated jobs
+
+```python
+# Get paginated jobs
+response = client.jobs.get_all(page_size=None, current_page=None)
+print(response.is_empty)  
+print(response.result)
+print(response.total)
+```
+
 #### Create job
 
 ```python
@@ -190,7 +200,13 @@ auth_config = AuthConfiguration({
     "api_key": "AXXXXXXXXXXXXXXXXXXXXXX"
 })
 
-client = AlfredRealTimeClient(config, auth_config, verbose=True)
+client = AlfredRealTimeClient(
+   config,
+   auth_config,
+   verbose=False,
+   on_callback=None,
+   on_connect=None
+)
 ```
 
 ### File Events
