@@ -22,3 +22,13 @@ class JobsBase(ABC):
         Args:
         - job_id: Unique identifier of the Job.
         """
+
+    @abstractmethod
+    def get_all(self, page_size: int = None, current_page: int = None) -> Any:
+        """
+        Fetches all jobs for a company
+
+        Args:
+        - page_size: Number of jobs to fetch per page.
+        - current_page: Page number to fetch.
+        """
