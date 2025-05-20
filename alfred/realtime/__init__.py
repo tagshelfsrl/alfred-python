@@ -13,7 +13,7 @@ from alfred.utils import logging, setup_logger
 
 
 class AlfredRealTimeClient:
-    def __init__(self, config: ConfigurationDict, auth_config: AuthConfiguration, verbose=False):
+    def __init__(self, config: ConfigurationDict, auth_config: AuthConfiguration, verbose=False, error_callback=None, on_connect=None):
         """
         Initializes the AlfredRealTimeClient class.
 
@@ -27,6 +27,8 @@ class AlfredRealTimeClient:
         self.config = config
         self.auth_config = auth_config
         self.base_url = config.get("realtime_url")
+        self.error_callback = error_callback
+        self.on_connect = on_connect
 
         # Initialize logger
         self.logger = logging.getLogger("alfred-python")
@@ -35,7 +37,6 @@ class AlfredRealTimeClient:
                 "level": "DEBUG" if verbose else "INFO",
                 "name": "alfred-python"
             })
-        print(self.logger.level)
 
         # Subscribe to connection life-cycle events.
         self.socket.on('connect', self.__on_connect)
@@ -55,12 +56,15 @@ class AlfredRealTimeClient:
         Handles the 'connect' event.
         """
         self.logger.info(f"Successfully connected to: {self.base_url}")
+        if self.on_connect:
+            self.on_connect()
 
     def __on_disconnect(self):
         """
         Handles the 'disconnect' event.
         """
-        self.logger.info("Disconnected from the server.")
+        if self.verbose:
+            self.logger.info("Disconnected from the server.")
 
     def __on_connect_error(self, err):
         """
@@ -69,9 +73,12 @@ class AlfredRealTimeClient:
         Args:
           err (str): The error message.
         """
-        self.logger.info("Connection error:  %s", err)
+        if self.verbose:
+            self.logger.error("Connection error:  %s", err)
         self.disconnect()
-        raise Exception(f"Failed to connect to {self.base_url}: {err}")
+        # trigger error callback:
+        if self.error_callback:
+            self.error_callback(err)
 
     def __callback(self, event: Union[FileEvent, JobEvent, EventType], callback):
         """
@@ -122,3 +129,4 @@ class AlfredRealTimeClient:
         """
         self.logger.info("Closing connection...")
         self.socket.disconnect()
+
