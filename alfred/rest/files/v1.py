@@ -10,7 +10,7 @@ from alfred.http.http_client import HttpClient
 from alfred.base.exceptions import AlfredMissingArgument
 from .base import FilesBase
 from .typed import FileDetailsResponse
-
+import magic
 
 class Files(FilesBase):
     def __init__(self, http_client: HttpClient):
@@ -41,6 +41,12 @@ class Files(FilesBase):
     def upload_file(self, payload: UploadLocalFilePayload) -> UploadResponse:
         file = payload.get("file")
         filename = payload.get("filename")
+        session_id = payload.get("session_id")
+        metadata = payload.get("metadata", {})
+
+        # Detect MIME type
+        content_type = magic.from_buffer(file.read(1024), mime=True)
+        file.seek(0)  # reset pointer
 
         if isinstance(file, BufferedReader):
             filename = os.path.basename(file.name)
@@ -48,21 +54,22 @@ class Files(FilesBase):
         if not filename:
             raise AlfredMissingArgument("filename must be provided.")
 
-        files = [
-            ("file", (filename, file, "application/octet-stream")),
-            ("session_id", (None, payload["session_id"], "text/plain")),
-            (
-                "metadata",
-                (None, json.dumps(payload.get("metadata")), "application/json"),
-            ),
-        ]
+        files = {
+            "file": (filename, file, content_type)
+        }
 
-        parsed_resp, _ = self.http_client.post(
+        data = {
+            "session_id": session_id,
+            "metadata": json.dumps(metadata)
+        }
+
+        parsed_response, _ = self.http_client.post(
             "/api/file/uploadfile",
-            files=files,
-            headers={"content-type": None},
+            data=data,
+            files=files
         )
-        return parsed_resp
+
+        return parsed_response
 
     def __extract_filename(self, content_disposition: Text):
         """

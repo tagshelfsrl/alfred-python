@@ -255,7 +255,7 @@ class HttpClient:
         hmac_key = f"amx {secret_key}:{signature_base64}:{nonce}:{request_timestamp}"
         prepped_request.headers.update({"Authorization": hmac_key})
 
-    def __get_headers(self, headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+    def __get_headers(self, headers: Optional[Dict[str, str]], has_files: bool = False) -> Dict[str, str]:
         """
         Get the request headers.
 
@@ -265,9 +265,12 @@ class HttpClient:
         headers = headers or {}
         default_headers = {
             "Accept-Charset": "utf-8",
-            "Content-Type": "application/json",
             "Accept": RESPONSE_TYPE_HEADER_MAPPING.get(self.response_type),
         }
+
+        # Set default Content-Type only if it's not a file upload
+        if "Content-Type" not in headers and not has_files:
+            default_headers["Content-Type"] = "application/json"
 
         return {**default_headers, **headers}
 
@@ -326,7 +329,7 @@ class HttpClient:
         elif timeout <= 0:
             raise ValueError(timeout)
 
-        headers = self.__get_headers(headers)
+        headers = self.__get_headers(headers, has_files=bool(files))
         url = self.base_url + uri
 
         kwargs = {
