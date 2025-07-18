@@ -12,10 +12,13 @@ Check out this simple example to get up and running:
 
 ```python
 from alfred.rest import AlfredClient
-from alfred.base import Configuration
+from alfred.base.config import Configuration
+from alfred.http.typed import AuthConfiguration
 
 config = Configuration.default()
-auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
+auth_config = AuthConfiguration(
+   api_key = "AXXXXXXXXXXXXXXXXXXXXXX"
+)
 
 client = AlfredClient(config, auth_config)
 
@@ -27,19 +30,20 @@ print(values)
 
 A Session is a mechanism designed for asynchronous file uploads. It serves as a container or grouping for files that are uploaded at different times or from various sources, but are all part of a single Job. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/deferred-session).
 
-#### Get session by ID
-
-```python
-# Get a session by ID
-result = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(result)
-```
-
 #### Create session
 
 ```python
 # Create a session
 result = client.sessions.create()
+session_id = result.get("session_id")
+print(session_id)
+```
+
+#### Get session by ID
+
+```python
+# Get a session by ID
+result = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
@@ -68,7 +72,9 @@ print(response.total)
 #### Create job
 
 ```python
-job = {
+from alfred.rest.jobs.typed import CreateJobDict
+
+job: CreateJobDict = {
    "session_id": "session-id",
    "propagate_metadata": True,
    "merge": True,
@@ -112,16 +118,20 @@ File is an individual document or data unit undergoing specialized operations ta
 #### Get file by ID
 
 ```python
+from alfred.rest.files.typed import FileDetailsResponse
+
 # Get a file by ID
-result = client.files.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result: FileDetailsResponse = client.files.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 print(result)
 ```
 
 #### Download file by ID
 
 ```python
+from alfred.rest.files.typed import DownloadResponse
+
 # Download a file by ID
-result = client.files.download("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result: DownloadResponse = client.files.download("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
 
 with open(result.get("original_name"), "wb") as f:
    f.write(result.get("file").getvalue())
@@ -130,23 +140,31 @@ with open(result.get("original_name"), "wb") as f:
 #### Upload remote file
 
 ```python
-# Upload a remote file
-result = client.files.upload({
+from alfred.rest.files.typed import UploadRemoteFilePayload, UploadResponse
+
+# Upload a remote file and creates a Job in Alfred
+payload: UploadRemoteFilePayload = {
    "url": "<File URL>",
    "metadata": {}
-})
+}
+result: UploadResponse = client.files.upload(payload)
 print(result)
 ```
 
-#### Upload a local file
+#### Upload a local file by diferred session
 
 ```python
+from alfred.rest.files.typed import UploadLocalFilePayload, UploadResponse
+
 with open("<Path to local file>", "rb") as upload_file:
-   result = client.files.upload_file({
+
+   payload: UploadLocalFilePayload = {
       "file": upload_file,
+      "filename": "file-name.jpeg", # optional
       "session_id": "XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX",
       "metadata": {}
-   })
+   }
+   result: UploadResponse = client.files.upload_file(payload)
    print(result)
 ```
 
@@ -232,7 +250,7 @@ It's particularly useful when you want to listen to a specific event instead of 
 Here's an example of how to listen to a specific event:
 
 ```python
-from alfred.base import FileEvent, JobEvent
+from alfred.base.constants import FileEvent, JobEvent
 
 # Listen to the specific File Done event
 client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))
