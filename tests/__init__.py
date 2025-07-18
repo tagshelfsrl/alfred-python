@@ -12,8 +12,9 @@ from alfred.rest.jobs.v1 import Jobs
 
 class TestMain(unittest.TestCase):
 
+    # Configuration for integration tests
     _alfred_api_key = "" # Insert your API key here    <--------------------
-    _alfred_base_url = "http://localhost:18036" # Localhost URL for testing
+    _alfred_base_url = "https://app.tagshelf.com"
 
     if not _alfred_api_key.strip():
         raise ValueError("ALFRED_API_KEY must be set for integration tests.")
@@ -87,12 +88,3 @@ class TestMain(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-"""
-Notes:
-To run these tests locally, ensure you have the following:
-1. A running Alfred server instance.
-2. The `ALFRED_API_KEY` environment variable set with your API key.
-3. Azurite as a local storage emulator if you're testing file uploads.
-4. The test files located in the `tests/test_files` directory.
-"""
