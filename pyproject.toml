@@ -20,7 +20,9 @@ dependencies = [
   "pydantic-settings >= 2.0",
   "requests >= 2.30",
   "python-socketio >= 5.11",
-  "websocket-client >= 1.8"
+  "websocket-client >= 1.8",
+  "python-magic==0.4.27; platform_system != 'Windows'",
+  "python-magic-bin==0.4.14; platform_system == 'Windows'"
 ]
 
 [project.urls]
