@@ -12,17 +12,17 @@ Check out this simple example to get up and running:
 
 ```python
 from alfred.rest import AlfredClient
-from alfred.base.config import Configuration
-from alfred.http.typed import AuthConfiguration
+from alfred.base import Configuration
+from alfred.http import AuthConfiguration
 
 config = Configuration.default()
 auth_config = AuthConfiguration(
-   api_key = "AXXXXXXXXXXXXXXXXXXXXXX"
+   api_key = "<api-key>"
 )
 
 client = AlfredClient(config, auth_config)
 
-values = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+values = client.data_points.get_values("<file-id>")
 print(values)
 ```
 
@@ -43,7 +43,7 @@ print(session_id)
 
 ```python
 # Get a session by ID
-result = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.sessions.get("<session-id>")
 print(result)
 ```
 
@@ -55,7 +55,7 @@ A Job represents a single unit of work that group one or more Files within Alfre
 
 ```python
 # Get a job by ID
-result = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.jobs.get("<job-id>")
 print(result)
 ```
 
@@ -72,7 +72,7 @@ print(response.total)
 #### Create job
 
 ```python
-from alfred.rest.jobs.typed import CreateJobDict
+from alfred.rest.jobs import CreateJobDict
 
 job: CreateJobDict = {
    "session_id": "session-id",
@@ -118,20 +118,20 @@ File is an individual document or data unit undergoing specialized operations ta
 #### Get file by ID
 
 ```python
-from alfred.rest.files.typed import FileDetailsResponse
+from alfred.rest.files import FileDetailsResponse
 
 # Get a file by ID
-result: FileDetailsResponse = client.files.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result: FileDetailsResponse = client.files.get("<file-id>")
 print(result)
 ```
 
 #### Download file by ID
 
 ```python
-from alfred.rest.files.typed import DownloadResponse
+from alfred.rest.files import DownloadResponse
 
 # Download a file by ID
-result: DownloadResponse = client.files.download("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result: DownloadResponse = client.files.download("<file-id>")
 
 with open(result.get("original_name"), "wb") as f:
    f.write(result.get("file").getvalue())
@@ -140,7 +140,7 @@ with open(result.get("original_name"), "wb") as f:
 #### Upload remote file
 
 ```python
-from alfred.rest.files.typed import UploadRemoteFilePayload, UploadResponse
+from alfred.rest.files import UploadRemoteFilePayload, UploadResponse
 
 # Upload a remote file and creates a Job in Alfred
 payload: UploadRemoteFilePayload = {
@@ -151,17 +151,17 @@ result: UploadResponse = client.files.upload(payload)
 print(result)
 ```
 
-#### Upload a local file by diferred session
+#### Upload a local file by deferred session
 
 ```python
-from alfred.rest.files.typed import UploadLocalFilePayload, UploadResponse
+from alfred.rest.files import UploadLocalFilePayload, UploadResponse
 
 with open("<Path to local file>", "rb") as upload_file:
 
    payload: UploadLocalFilePayload = {
       "file": upload_file,
       "filename": "file-name.jpeg", # optional
-      "session_id": "XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX",
+      "session_id": "<session-id>",
       "metadata": {}
    }
    result: UploadResponse = client.files.upload_file(payload)
@@ -179,7 +179,7 @@ Data Points are the core of Alfred's platform and represent data that you want t
 
 ```python
 # Get a data point by file ID
-result = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.data_points.get_values("<file-id>")
 print(result)
 ```
 
@@ -208,14 +208,14 @@ The `alfred-python` library provides a way to listen to events emitted by Alfred
 To get started, you need to create an instance of the `AlfredRealTimeClient` class.
 
 ```python
-from alfred import AlfredRealTimeClient
+from alfred.realtime import AlfredRealTimeClient
 from alfred.base import Configuration
-from alfred import AuthConfiguration
+from alfred.http import AuthConfiguration
 
 config = Configuration.default()
 
 auth_config = AuthConfiguration({
-    "api_key": "AXXXXXXXXXXXXXXXXXXXXXX"
+    "api_key": "<api-key>"
 })
 
 client = AlfredRealTimeClient(
@@ -250,7 +250,7 @@ It's particularly useful when you want to listen to a specific event instead of 
 Here's an example of how to listen to a specific event:
 
 ```python
-from alfred.base.constants import FileEvent, JobEvent
+from alfred.base import FileEvent, JobEvent
 
 # Listen to the specific File Done event
 client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))

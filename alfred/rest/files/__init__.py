@@ -1,4 +1,5 @@
 from .base import FilesBase
+from .typed import *
 from .v1 import Files as V1
 
 

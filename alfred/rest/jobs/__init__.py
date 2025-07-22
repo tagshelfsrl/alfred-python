@@ -1,4 +1,5 @@
 from .base import JobsBase
+from .typed import *
 from .v1 import Jobs as V1
 
 
