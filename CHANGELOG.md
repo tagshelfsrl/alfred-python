@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.1...v0.6.2) (2025-07-23)
+
+
+### Bug Fixes
+
+* refactor ResponseType handling and move to typed module ([1e8817b](https://github.com/tagshelfsrl/alfred-python/commit/1e8817bfba037cef05ad0f728998c7384326a758))
+
 ## [0.6.1](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.0...v0.6.1) (2025-07-23)
 
 
