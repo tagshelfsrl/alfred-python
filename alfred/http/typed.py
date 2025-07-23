@@ -2,6 +2,9 @@
 from enum import Enum
 from typing import TypedDict, Optional, Text
 
+# Project Imports
+from alfred.base import ResponseType
+
 
 class HttpMethod(Enum):
     POST = "POST"
@@ -16,12 +19,6 @@ class AuthMethod(Enum):
     API_KEY = ("apikey",)
     OAUTH = ("oauth",)
     HMAC = ("hmac",)
-
-
-class ResponseType:
-    JSON = "json"
-    TEXT = "text"
-    XML = "xml"
 
 
 class OAuthConfiguration(TypedDict):

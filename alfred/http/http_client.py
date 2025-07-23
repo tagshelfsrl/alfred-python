@@ -17,6 +17,7 @@ from urllib3.util.retry import Retry
 
 # Project imports
 from .typed import *  # pylint: disable=W0401, W0614
+from ..base.typed import ResponseType
 from ..base.constants import RESPONSE_TYPE_HEADER_MAPPING
 from ..base.exceptions import AlfredMissingAuthException
 from ..utils import logging
