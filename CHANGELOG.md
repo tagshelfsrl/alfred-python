@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.0...v0.6.1) (2025-07-23)
+
+
+### Bug Fixes
+
+* incorrect Content-Type handling in upload_file ([#47](https://github.com/tagshelfsrl/alfred-python/issues/47)) ([8a62e5d](https://github.com/tagshelfsrl/alfred-python/commit/8a62e5d3e710236f8d8748bf7bec649a22b3e006))
+
 ## [0.6.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.5.0...v0.6.0) (2025-03-24)
 
 
