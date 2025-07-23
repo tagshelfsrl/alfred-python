@@ -230,11 +230,11 @@ auth_config = AuthConfiguration({
     "api_key": "<api-key>"
 })
 
-client = AlfredRealTimeClient(
+realtime_client = AlfredRealTimeClient(
    config,
    auth_config,
    verbose=False,
-   on_callback=None,
+   error_callback=None,
    on_connect=None
 )
 ```
@@ -243,7 +243,7 @@ client = AlfredRealTimeClient(
 These events are specifically designed to respond to a variety of actions or status changes related to Files. To see more details about File events, visit our [official documentation](https://docs.tagshelf.dev/event-api/fileevents).
 ```python
 # Listen to all File events
-client.on_file_event(lambda data: print(data))
+realtime_client.on_file_event(lambda data: print(data))
 ```
 
 ### Job Events
@@ -251,7 +251,7 @@ Alfred performs asynchronous document classification, extraction, and indexing o
 
 ```python
 # Listen to all Job events
-client.on_job_event(lambda data: print(data))
+realtime_client.on_job_event(lambda data: print(data))
 ```
 
 ### Specific Events
@@ -265,10 +265,10 @@ Here's an example of how to listen to a specific event:
 from alfred.base import FileEvent, JobEvent
 
 # Listen to the specific File Done event
-client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))
+realtime_client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))
 
 # Listen to the specific Job Finished event
-client.on(JobEvent.JOB_FINISHED_EVENT.value, lambda data: print(data))
+realtime_client.on(JobEvent.JOB_FINISHED_EVENT.value, lambda data: print(data))
 ```
 
 Here is a list of all supported events:
