@@ -13,13 +13,16 @@ Check out this simple example to get up and running:
 ```python
 from alfred.rest import AlfredClient
 from alfred.base import Configuration
+from alfred.http import AuthConfiguration
 
 config = Configuration.default()
-auth_config = {"api_key": "AXXXXXXXXXXXXXXXXXXXXXX"}
+auth_config = AuthConfiguration(
+   api_key = "<api-key>"
+)
 
 client = AlfredClient(config, auth_config)
 
-values = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+values = client.data_points.get_values("<file-id>")
 print(values)
 ```
 
@@ -27,19 +30,18 @@ print(values)
 
 A Session is a mechanism designed for asynchronous file uploads. It serves as a container or grouping for files that are uploaded at different times or from various sources, but are all part of a single Job. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/deferred-session).
 
-#### Get session by ID
-
-```python
-# Get a session by ID
-result = client.sessions.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
-print(result)
-```
-
 #### Create session
 
 ```python
-# Create a session
 result = client.sessions.create()
+session_id = result.get("session_id")
+print(session_id)
+```
+
+#### Get session by ID
+
+```python
+result = client.sessions.get("<session-id>")
 print(result)
 ```
 
@@ -50,15 +52,13 @@ A Job represents a single unit of work that group one or more Files within Alfre
 #### Get job by ID
 
 ```python
-# Get a job by ID
-result = client.jobs.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.jobs.get("<job-id>")
 print(result)
 ```
 
 #### Get paginated jobs
 
 ```python
-# Get paginated jobs
 response = client.jobs.get_all(page_size=None, current_page=None)
 print(response.is_empty)  
 print(response.result)
@@ -68,7 +68,9 @@ print(response.total)
 #### Create job
 
 ```python
-job = {
+from alfred.rest.jobs import CreateJobDict
+
+job: CreateJobDict = {
    "session_id": "session-id",
    "propagate_metadata": True,
    "merge": True,
@@ -84,7 +86,6 @@ job = {
    "file_names": ["file-name-1", "file-name-2"],
 }
 
-# Create a job
 result = client.jobs.create(job)
 print(result)
 ```
@@ -112,41 +113,71 @@ File is an individual document or data unit undergoing specialized operations ta
 #### Get file by ID
 
 ```python
-# Get a file by ID
-result = client.files.get("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+from alfred.rest.files import FileDetailsResponse
+
+result: FileDetailsResponse = client.files.get("<file-id>")
 print(result)
 ```
 
 #### Download file by ID
 
 ```python
-# Download a file by ID
-result = client.files.download("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+from alfred.rest.files import DownloadResponse
+
+result: DownloadResponse = client.files.download("<file-id>")
 
 with open(result.get("original_name"), "wb") as f:
    f.write(result.get("file").getvalue())
 ```
 
-#### Upload remote file
+#### Upload a single remote file and create a Job
 
 ```python
-# Upload a remote file
-result = client.files.upload({
-   "url": "<File URL>",
-   "metadata": {}
-})
+from alfred.rest.files import UploadRemoteFilePayload, UploadResponse
+
+payload: UploadRemoteFilePayload = {
+   "url": "<file-url>",
+   "filename" "file-name", # optional
+   "metadata": {
+      "key": "value",
+   }
+}
+
+result: UploadResponse = client.files.upload(payload)
 print(result)
 ```
 
-#### Upload a local file
+#### Upload multiple remote files and create a Job
 
 ```python
+from alfred.rest.files import UploadRemoteFilePayload, UploadResponse
+
+payload: UploadRemoteFilePayload = {
+   "urls": ["<file-url>", "<file-url-2>"],
+   "filenames": ["file-name", "file-name-2"], # optional
+   "metadata": {
+      "key": "value",
+   }
+}
+
+result: UploadResponse = client.files.upload(payload)
+print(result)
+```
+
+#### Upload a local file by deferred session
+
+```python
+from alfred.rest.files import UploadLocalFilePayload, UploadResponse
+
 with open("<Path to local file>", "rb") as upload_file:
-   result = client.files.upload_file({
+
+   payload: UploadLocalFilePayload = {
       "file": upload_file,
-      "session_id": "XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX",
+      "filename": "file-name.jpeg", # optional
+      "session_id": "<session-id>",
       "metadata": {}
-   })
+   }
+   result: UploadResponse = client.files.upload_file(payload)
    print(result)
 ```
 
@@ -160,8 +191,7 @@ Data Points are the core of Alfred's platform and represent data that you want t
 #### Get Data Point by File ID
 
 ```python
-# Get a data point by file ID
-result = client.data_points.get_values("XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXX")
+result = client.data_points.get_values("<file-id>")
 print(result)
 ```
 
@@ -190,14 +220,14 @@ The `alfred-python` library provides a way to listen to events emitted by Alfred
 To get started, you need to create an instance of the `AlfredRealTimeClient` class.
 
 ```python
-from alfred import AlfredRealTimeClient
+from alfred.realtime import AlfredRealTimeClient
 from alfred.base import Configuration
-from alfred import AuthConfiguration
+from alfred.http import AuthConfiguration
 
 config = Configuration.default()
 
 auth_config = AuthConfiguration({
-    "api_key": "AXXXXXXXXXXXXXXXXXXXXXX"
+    "api_key": "<api-key>"
 })
 
 client = AlfredRealTimeClient(
