@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.2...v0.6.3) (2025-07-23)
+
+
+### Bug Fixes
+
+* rename client to realtime_client and update callback parameter in README ([b5dae8f](https://github.com/tagshelfsrl/alfred-python/commit/b5dae8f81b206c3da7994fe9b44c84537e3c9f18))
+
 ## [0.6.2](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.1...v0.6.2) (2025-07-23)
 
 
