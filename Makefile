@@ -10,4 +10,4 @@ build:
 	python -m build
 
 test:
-	python test.py
+	python -m unittest
