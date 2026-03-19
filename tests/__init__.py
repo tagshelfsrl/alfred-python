@@ -1,90 +1,94 @@
-import unittest
 import json
+import os
+import unittest
 from pathlib import Path
+
 from alfred.base.config import Configuration
-from alfred.http.typed import AuthConfiguration, HttpConfiguration
 from alfred.http.http_client import HttpClient
+from alfred.http.typed import AuthConfiguration, HttpConfiguration
 from alfred.rest.files.typed import UploadLocalFilePayload
 from alfred.rest.files.v1 import Files
 from alfred.rest.jobs.typed import CreateJobDict
-from alfred.rest.sessions import SessionsFactory
 from alfred.rest.jobs.v1 import Jobs
+from alfred.rest.sessions import SessionsFactory
+
 
 class TestMain(unittest.TestCase):
+    _alfred_api_key = os.getenv("ALFRED_API_KEY", "").strip()
+    _alfred_base_url = os.getenv("ALFRED_BASE_URL", "https://app.tagshelf.com").strip()
+    _alfred_test_file_id = os.getenv("ALFRED_TEST_FILE_ID", "").strip()
+    _alfred_test_upload_file = os.getenv("ALFRED_TEST_UPLOAD_FILE", "").strip()
 
-    # Configuration for integration tests
-    _alfred_api_key = "" # Insert your API key here    <--------------------
-    _alfred_base_url = "https://app.tagshelf.com"
+    @classmethod
+    def setUpClass(cls):
+        if not cls._alfred_api_key:
+            raise unittest.SkipTest(
+                "Set ALFRED_API_KEY to run integration tests."
+            )
 
-    if not _alfred_api_key.strip():
-        raise ValueError("ALFRED_API_KEY must be set for integration tests.")
-    
-    # Local test configuration
-    _config = Configuration.v1({"base_url": _alfred_base_url})
-    _auth_config = AuthConfiguration(
-        api_key= _alfred_api_key
-    )
-    _http_config = HttpConfiguration({"timeout": 10})
-    _http_client = HttpClient(_config.get("base_url"), _auth_config, _http_config)
-    _session_factory = SessionsFactory.create(_config.get("version", 1), _http_client)
+        cls._config = Configuration.v1({"base_url": cls._alfred_base_url})
+        cls._auth_config = AuthConfiguration(api_key=cls._alfred_api_key)
+        cls._http_config = HttpConfiguration({"timeout": 10})
+        cls._http_client = HttpClient(
+            cls._config.get("base_url"), cls._auth_config, cls._http_config
+        )
+        cls._session_factory = SessionsFactory.create(
+            cls._config.get("version", 1), cls._http_client
+        )
 
-    """
-    To run this test you can execute the following command:
-    python -m unittest tests.TestMain.test_get_file
-    """
     def test_get_file(self):
         """
-        Test case for getting a file by ID.
+        Run with:
+        python -m unittest tests.TestMain.test_get_file
         """
-        file_id = "" # Insert your file ID here    <--------------------
+        if not self._alfred_test_file_id:
+            self.skipTest("Set ALFRED_TEST_FILE_ID to run this test.")
 
-        if not file_id.strip():
-            raise ValueError("You must set a valid file_id to run this test.")
-    
         file_service = Files(self._http_client)
-        
-        file_response = file_service.get(file_id)
+        file_response = file_service.get(self._alfred_test_file_id)
         file_string_response = json.dumps(file_response, indent=2)
 
         print(f"File Response: \n{file_string_response}")
 
-    """
-    To run this test you can execute the following command:
-    python -m unittest tests.TestMain.test_upload_file
-    """
     def test_upload_file(self):
         """
-        Test case for uploading a local file.
+        Run with:
+        python -m unittest tests.TestMain.test_upload_file
         """
-        fileService = Files(self._http_client)
+        if not self._alfred_test_upload_file:
+            self.skipTest("Set ALFRED_TEST_UPLOAD_FILE to run this test.")
+
+        file_path = Path(self._alfred_test_upload_file)
+        if not file_path.exists():
+            self.skipTest(f"Upload file does not exist: {file_path}")
+
+        file_service = Files(self._http_client)
         raw_session = self._session_factory.create()
         session_id = raw_session.get("session_id")
 
         print(f"Session ID: {session_id}")
 
-        file_path = Path(__file__).parent / "test_files" / "file-name.jpeg"
         with file_path.open("rb") as file:
-            
             payload: UploadLocalFilePayload = {
                 "file": file,
-                "filename": "file-name",
-                "session_id": session_id
+                "filename": file_path.name,
+                "session_id": session_id,
             }
-            
-            upload_response = fileService.upload_file(payload)
+
+            upload_response = file_service.upload_file(payload)
             upload_string_response = json.dumps(upload_response, indent=2)
             print(f"File Upload Response: \n{upload_string_response}")
 
             job_service = Jobs(self._http_client)
-
             payload: CreateJobDict = {
                 "session_id": session_id,
-                "channel": "test"
+                "channel": "test",
             }
 
             job_response = job_service.create(payload)
             job_string_response = json.dumps(job_response, indent=2)
             print(f"Job Creation Response: \n{job_string_response}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
