@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.3...v0.6.4) (2026-03-19)
+
+
+### Bug Fixes
+
+* normalize job metadata from JSON string to dict in SDK ([#52](https://github.com/tagshelfsrl/alfred-python/issues/52)) ([dc8907a](https://github.com/tagshelfsrl/alfred-python/commit/dc8907a0a8da2853e568a34b5fb7205638eb0e0b))
+
 ## [0.6.3](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.2...v0.6.3) (2025-07-23)
 
 
