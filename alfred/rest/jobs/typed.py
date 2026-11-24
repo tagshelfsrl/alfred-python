@@ -30,6 +30,10 @@ class CreateJobDict(TypedDict, total=False):
     # Opaque, case-sensitive caller identifier, at most 512 characters after
     # trimming. Alfred does not deduplicate jobs on it.
     correlation_id: Optional[str]
+    # Password of the job's protected files (PDF, zip, Office). At most 256
+    # bytes in UTF-8, used exactly as sent. Alfred answers 400 where
+    # password-protected uploads are not enabled.
+    password: Optional[str]
 
 
 class CreateJobResponseDict(TypedDict, total=False):

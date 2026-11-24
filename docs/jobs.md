@@ -131,7 +131,7 @@ Submits a new job.
 |---|---|---|---|
 | `job` | `CreateJobDict` (dict) | required | Job creation payload. All keys are optional in the type; the server decides which combinations are valid. |
 
-Keys of `CreateJobDict`: `session_id`, `propagate_metadata`, `merge`, `decompose`, `metadata`, `channel`, `parent_file_prefix`, `page_rotation`, `container`, `file_name`, `file_names`, `correlation_id`.
+Keys of `CreateJobDict`: `session_id`, `propagate_metadata`, `merge`, `decompose`, `metadata`, `channel`, `parent_file_prefix`, `page_rotation`, `container`, `file_name`, `file_names`, `correlation_id`, `password`.
 
 `correlation_id` is a string of at most 512 characters after trimming. Alfred treats it as opaque and case-sensitive.
 
@@ -154,7 +154,28 @@ response = jobs.create(
 job_id = response["job_id"]
 ```
 
-Errors worth handling: 400 for a malformed body, for a `correlation_id` that is not a string or is longer than 512 characters, and for other validation failures. See [errors.md](errors.md).
+Errors worth handling: 400 for a malformed body, for a `correlation_id` that is not a string or is longer than 512 characters, for a refused `password` (see below), and for other validation failures. See [errors.md](errors.md).
+
+#### Password-protected files
+
+Alfred can open password-protected PDFs, zip archives and Office files (docx, xlsx, pptx) when the job carries their password. Send it as `password` when the job is created:
+
+```python
+response = jobs.create(
+    {
+        "session_id": "0f767925-b464-4ffa-b621-1a0aeacac256",
+        "channel": "api",
+        "password": "the files' password",
+    }
+)
+```
+
+- One password per request. It applies to every file of the job and to anything inside them, such as the entries of a protected zip.
+- At most 256 bytes in UTF-8. It is used exactly as sent: not trimmed, not normalized.
+- For files uploaded into a deferred session, the password goes here, when the session becomes a job, not with each uploaded file. For remote files, send it with the upload instead (see [files.md](files.md)).
+- A protected file whose job has no password, or the wrong one, ends with the status "Password required".
+- Alfred answers 400 with a message that says why when it refuses a password: password-protected uploads are not enabled in that environment, the account's pipeline does not support them, or the value is not a string, is empty or is too long. It never accepts the request and ignores the password.
+- A job that was given a password cannot be restarted onto a pipeline that cannot open protected files; that refusal is the `password-requires-ingestor` reason described under [restart](#restart).
 
 ### get
 
@@ -441,7 +462,7 @@ Other changes:
 - `get_all(page_size, current_page)` still works positionally. Use `page` in new code.
 - `get_all` sends `page` and `currentPage` (and `page_size` and `pageSize`) together. An explicit `0` is now sent, and the server rejects it, instead of being silently dropped.
 - Job IDs are URL-quoted, and a blank ID raises `ValueError` instead of calling `/api/job/detail/`.
-- New: `JobView`, `exclude`, filters on `get_all`, `correlation_id` in `create`, and `cancel`, `restart` and `check_sources`.
+- New: `JobView`, `exclude`, filters on `get_all`, `correlation_id` and `password` in `create`, and `cancel`, `restart` and `check_sources`.
 
 ## See also
 

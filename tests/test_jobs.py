@@ -83,6 +83,17 @@ class TestCreate(unittest.TestCase):
             },
         )
 
+    def test_create_forwards_password_untouched(self):
+        jobs, client = make({"job_id": "job-1", "correlation_id": ""})
+        payload = {"session_id": "s-1", "password": "  p@ss word  "}
+
+        jobs.create(payload)
+
+        self.assertEqual(client.last["method"], "POST")
+        self.assertEqual(client.last["uri"], "/api/job/create")
+        self.assertIs(client.last["data"], payload)
+        self.assertEqual(client.last["data"]["password"], "  p@ss word  ")
+
     def test_create_response_is_not_normalized(self):
         jobs, _ = make({"job_id": "j", "metadata": "x"})
         self.assertEqual(jobs.create({}), {"job_id": "j", "metadata": "x"})
