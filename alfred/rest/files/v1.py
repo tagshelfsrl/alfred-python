@@ -2,6 +2,7 @@
 import os
 import json
 from email.message import Message
+from email.utils import collapse_rfc2231_value
 from typing import Text
 
 # Project imports
@@ -84,4 +85,18 @@ class Files(FilesBase):
 
         message = Message()
         message["Content-Disposition"] = content_disposition
-        return message.get_filename()
+
+        plain_filename = None
+        for name, value in message.get_params(header="content-disposition", failobj=[]):
+            if name.lower() != "filename":
+                continue
+            if isinstance(value, tuple):
+                # The encoded form (`filename*`, RFC 5987) wins over the plain
+                # one when both are sent (RFC 6266, section 4.3).
+                return collapse_rfc2231_value(value).strip() or None
+            if plain_filename is None:
+                plain_filename = value
+
+        if not plain_filename:
+            return None
+        return plain_filename.strip() or None

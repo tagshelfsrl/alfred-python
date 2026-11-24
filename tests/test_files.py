@@ -130,15 +130,54 @@ class TestFilesDownload(unittest.TestCase):
 
         self.assertEqual(result["original_name"], "naïve.pdf")
 
-    def test_download_when_filename_and_filename_star_are_both_present_returns_plain_filename(self):
-        # Note: the standard library returns the plain `filename` value here.
-        # The unmodified code returned the decoded `filename*` value ("real name.pdf").
-        # This test records the standard-library behaviour; see the report.
+    def test_download_prefers_encoded_filename_when_both_forms_are_present(self):
+        # RFC 6266, section 4.3: `filename*` wins over `filename`.
         result, _ = self._download(
             "attachment; filename=\"fallback.pdf\"; filename*=UTF-8''real%20name.pdf"
         )
 
-        self.assertEqual(result["original_name"], "fallback.pdf")
+        self.assertEqual(result["original_name"], "real name.pdf")
+
+    def test_download_prefers_encoded_filename_whatever_the_parameter_order(self):
+        result, _ = self._download(
+            "attachment; filename*=UTF-8''real%20name.pdf; filename=\"fallback.pdf\""
+        )
+
+        self.assertEqual(result["original_name"], "real name.pdf")
+
+    def test_download_decodes_filename_star_in_a_non_utf8_charset(self):
+        result, _ = self._download("attachment; filename*=iso-8859-1'en'%A3%20rates.pdf")
+
+        self.assertEqual(result["original_name"], "\u00a3 rates.pdf")
+
+    def test_download_keeps_semicolon_inside_quoted_filename(self):
+        result, _ = self._download("inline; filename=\"a;b.pdf\"")
+
+        self.assertEqual(result["original_name"], "a;b.pdf")
+
+    def test_download_keeps_non_ascii_characters_of_plain_filename(self):
+        result, _ = self._download("attachment; filename=\"informe a\u00f1o.pdf\"")
+
+        self.assertEqual(result["original_name"], "informe a\u00f1o.pdf")
+
+    def test_download_reads_filename_whatever_the_parameter_case(self):
+        result, _ = self._download("ATTACHMENT; FILENAME=\"Upper.PDF\"")
+
+        self.assertEqual(result["original_name"], "Upper.PDF")
+
+    def test_download_uses_first_plain_filename_when_it_is_repeated(self):
+        result, _ = self._download(
+            "attachment; filename=\"first.pdf\"; filename=\"second.pdf\""
+        )
+
+        self.assertEqual(result["original_name"], "first.pdf")
+
+    def test_download_returns_none_name_for_empty_filename_values(self):
+        for header in ("attachment; filename=\"\"", "attachment; filename*=UTF-8''", ""):
+            with self.subTest(header=header):
+                result, _ = self._download(header)
+
+                self.assertIsNone(result["original_name"])
 
 
 class TestFilesUploadFile(unittest.TestCase):
