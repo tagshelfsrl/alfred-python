@@ -25,7 +25,7 @@ client = AlfredClient(
 )
 ```
 
-`Configuration.v1()` points at `https://app.tagshelf.com`. To use another environment, pass `Configuration.v1({"base_url": "https://..."})` (see [configuration.md](configuration.md)). The client exposes four domains: `client.sessions`, `client.files`, `client.jobs` and `client.data_points`.
+`Configuration.v1()` points at `https://app.tagshelf.com`. To use another environment, pass `Configuration.v1({"base_url": "https://..."})` (see [configuration.md](configuration.md)). The client exposes five domains: `client.sessions`, `client.files`, `client.jobs`, `client.data_points` and `client.classifications`. This page uses the first four; [classification.md](classification.md) covers the fifth.
 
 ## The flow
 

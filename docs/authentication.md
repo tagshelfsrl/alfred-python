@@ -99,7 +99,7 @@ The signature covers the request's method, URL, a timestamp, a one-time value an
 
 | Part of the SDK | API key | OAuth | HMAC |
 | --- | --- | --- | --- |
-| REST client (`AlfredClient`) | Yes | Yes | Only requests without a body (see above) |
+| REST client (`AlfredClient`) | Yes | Yes | Yes |
 | Real-time client (`AlfredRealTimeClient`) | Yes | No | No |
 
 The real-time client reads only `auth_config["api_key"]`. It does not read `ALFRED_API_KEY`, and it ignores `oauth` and `hmac`. If you rely on the environment variable for the REST client, pass the key explicitly to the real-time client as well. See [realtime.md](realtime.md#credentials).

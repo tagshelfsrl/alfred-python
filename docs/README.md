@@ -11,9 +11,9 @@ Each page is self-contained: you can land on any of them from a search and use i
 | [configuration.md](configuration.md) | `Configuration.v1` and its overrides, the HTTP settings and their defaults, response types, logging with `setup_logger`, and plugging in your own HTTP client. |
 | [files.md](files.md) | `client.files`: get a file's details, download the original, upload remote files, upload a local file into a session. |
 | [sessions.md](sessions.md) | `client.sessions`: open and inspect deferred sessions, which group several uploads into a single job. |
-| [jobs.md](jobs.md) | `client.jobs`: create jobs, read a job, list jobs. |
+| [jobs.md](jobs.md) | `client.jobs`: create jobs, read a job, list jobs, and cancel, restart or check the sources of a job. |
 | [data-points.md](data-points.md) | `client.data_points`: read the values Alfred extracted from a file. |
-| [classification.md](classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
+| [classification.md](classification.md) | `client.classifications`: standalone classification. Classify a text or a file against criteria you send with the request, without setting up document types first. |
 | [realtime.md](realtime.md) | `AlfredRealTimeClient`: subscribe to job and file events instead of polling, the event catalogue, threading, reconnection and failure modes. |
 | [errors.md](errors.md) | What the SDK raises and how to handle it. |
 | [compatibility.md](compatibility.md) | Supported Python versions and the dependency policy. |
@@ -22,7 +22,7 @@ Each page is self-contained: you can land on any of them from a search and use i
 
 1. [getting-started.md](getting-started.md) for the whole flow in one place.
 2. [authentication.md](authentication.md), because every client needs credentials.
-3. The domain pages you need: [files.md](files.md), [sessions.md](sessions.md), [jobs.md](jobs.md), [data-points.md](data-points.md).
+3. The domain pages you need: [files.md](files.md), [sessions.md](sessions.md), [jobs.md](jobs.md), [data-points.md](data-points.md), [classification.md](classification.md).
 4. [realtime.md](realtime.md) once you want events instead of polling.
 5. [configuration.md](configuration.md) and [errors.md](errors.md) when you move to production: timeouts, retries, logging and failure handling.
 
@@ -34,6 +34,7 @@ Alfred processes documents as jobs. A job groups one or more files, and every fi
 - Files at public URLs or in connected cloud storage skip the session: `client.files.upload` creates the job directly.
 - Once a file is processed, read its details ([files.md](files.md)) and its extracted values ([data-points.md](data-points.md)).
 - Processing is asynchronous. Poll the job, or listen for events ([realtime.md](realtime.md)).
+- Standalone classification ([classification.md](classification.md)) is a single request: you send a text or one file together with the criteria to judge it by, then poll for the answer. No document type has to exist beforehand. Alfred runs it as a job of its own, so the answer's `id` also works with [jobs.md](jobs.md).
 
 ## Conventions in these pages
 

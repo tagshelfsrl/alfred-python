@@ -1,6 +1,6 @@
 # alfred-python
 
-`alfred-python` is the Python client for the Alfred (TagShelf) REST API and its real-time event stream. It wraps the endpoints for sessions, files, jobs and data points, handles authentication, retries and rate-limit throttling, and can push job and file events to your code as they happen.
+`alfred-python` is the Python client for the Alfred (TagShelf) REST API and its real-time event stream. It wraps the endpoints for sessions, files, jobs, data points and standalone classification, handles authentication, retries and rate-limit throttling, and can push job and file events to your code as they happen.
 
 ## Install
 
@@ -61,7 +61,7 @@ Every page stands on its own. Start at the [documentation index](docs/README.md)
 | [Configuration](docs/configuration.md) | Base URLs, HTTP settings (timeout, retries, throttling), response types, logging and custom HTTP clients. |
 | [Files](docs/files.md) | Upload local files and remote URLs, read file details, download the original. |
 | [Sessions](docs/sessions.md) | Deferred sessions: group several uploads into one job. |
-| [Jobs](docs/jobs.md) | Create jobs, read their status, list jobs. |
+| [Jobs](docs/jobs.md) | Create jobs, read their status, list them, and cancel, restart or check the sources of a job. |
 | [Data points](docs/data-points.md) | Read the values Alfred extracted from a file. |
 | [Classification](docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
 | [Real-time events](docs/realtime.md) | Subscribe to job and file events over a socket; the full event catalogue. |
@@ -77,7 +77,7 @@ pip install -r requirements.txt
 python -m unittest
 ```
 
-The unit tests in `tests/test_smoke.py` use a fake HTTP client and need no credentials. `tests/__init__.py` holds integration tests that call a real Alfred environment. They create a session and a job, so point them at a test tenant. They are skipped unless `ALFRED_API_KEY` is set. The variables they read:
+The unit tests (`tests/test_*.py`) need no credentials and never leave your machine. `tests/__init__.py` holds integration tests that call a real Alfred environment. They create a session and a job, so point them at a test tenant. They are skipped unless `ALFRED_API_KEY` is set. The variables they read:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

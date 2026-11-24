@@ -171,7 +171,7 @@ realtime_client.on_job_event(handle_job_event)
 
 The members of `JobEvent` and `FileEvent` in `alfred.base.constants` (`job_finished_event`, `file_done_event` and so on) are not names the server sends, neither as socket events nor in `event_name`. A callback registered with one of them, as earlier versions of the README showed, is never called. Use the two streams and the `event_name` values in the [event catalogue](#event-catalogue).
 
-Alfred also publishes `bulk_task_event` for bulk operations. The SDK has no helper for it; `on("bulk_task_event", callback)` subscribes to it.
+Alfred also defines a third stream, `bulk_task_event`, for bulk operations, but version 1.130.0 sends nothing on it. The SDK has no helper for it; `on("bulk_task_event", callback)` subscribes to it.
 
 ### Register callbacks early
 
@@ -220,7 +220,7 @@ All of these arrive as `job_event`. Every one carries `job_id` and `correlation_
 | `alfred_event_job_create` | A job is created. | `user_name`, `merge`, `metadata`, `file_count`, `file_urls` |
 | `alfred_event_job_start` | The job begins processing. | |
 | `alfred_event_job_stage_update` | The job moves to another stage. | `stage` |
-| `alfred_event_job_retry` | The job retries a stage after a failure it can recover from. The same name is sent when the job has used up its retries: `exceeded_retries` tells the two apart. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
+| `alfred_event_job_retry` | The job has failed and used up its retries. It follows `alfred_event_job_failed`, with `exceeded_retries` set to `true`. Despite the name, Alfred 1.130.0 does not send it when a job is retried. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
 | `alfred_event_job_invalid` | The job fails the validation of its input. | `retries`, `exceeded_retries`, `error_messages`, `has_broken_input_sources` |
 | `alfred_event_job_failed` | The job stops on an error it cannot recover from. | `retries`, `exceeded_retries`, `error_messages` |
 | `alfred_event_job_cancelled` | The job is cancelled. | `cancellation_reason`, `error_messages` |
@@ -235,9 +235,9 @@ All of these arrive as `file_event`. Unless noted, each carries `job_id`, `creat
 
 | `event_name` | When Alfred sends it | Other fields |
 | --- | --- | --- |
-| `alfred_event_file_create` | A file is created in Alfred. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_create` | A file is created in Alfred. Alfred 1.130.0 defines this event but does not send it. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
 | `alfred_event_file_added_to_job` | A file is linked to a job. | `file_id` (no dates) |
-| `alfred_event_file_update` | The file's record is updated. | `file_id`, `file_log_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_update` | The file's record is updated. Alfred 1.130.0 defines this event but does not send it. | `file_id`, `file_log_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
 | `alfred_event_file_status_update` | The file's status changes. | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `manual_classification`, `classification_score`, `classification_status`, `file_status` |
 | `alfred_event_file_change_tag` | The file's tag (document type) changes. | `file_id`, `previous_tag_id`, `previous_tag_name`, `proposed_tag_id`, `classification_score`, `new_tag_id`, `new_tag_name` (no dates) |
 | `alfred_event_file_change_tag` | The file's tag is removed. It has the same name as a tag change and different fields. | `file_id`, `tag_being_removed_id`, `tag_being_removed_name`, `classification_score` (no dates) |
