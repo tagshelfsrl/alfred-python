@@ -84,12 +84,13 @@ class TestJobsSmoke(unittest.TestCase):
         result = jobs.get_all()
 
         self.assertEqual(
-            result.get("result"),
+            result.get("items"),
             [
                 {"id": "job-1", "metadata": {"metadata_key": "metadata_value"}},
                 {"id": "job-2", "metadata": {}},
             ],
         )
+        self.assertEqual(result.get("total"), 2)
 
 
 if __name__ == "__main__":
