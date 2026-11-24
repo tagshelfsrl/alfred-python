@@ -85,6 +85,48 @@ class TestAlfredRealTimeClient(unittest.TestCase):
         self.assertIn("connection refused", str(ctx.exception))
         self.assertIn("Could not establish connection with server", str(ctx.exception))
 
+    def test_failing_connect_keeps_the_api_key_out_of_the_error(self):
+        # The transport's error quotes the connection URL, key included.
+        self.socket.connect.side_effect = OSError(
+            "Max retries exceeded with url: /socket.io/?apiKey=key-1&transport=polling"
+        )
+
+        with self.assertRaises(alfred.exceptions.ConnectionError) as ctx:
+            self._client()
+
+        self.assertNotIn("key-1", str(ctx.exception))
+        self.assertNotIn("key-1", ctx.exception.message)
+        self.assertIn("/socket.io/?apiKey=[redacted]&transport=polling", str(ctx.exception))
+
+    def test_failing_connect_does_not_chain_the_error_that_quotes_the_key(self):
+        self.socket.connect.side_effect = OSError("url: /socket.io/?apiKey=key-1")
+
+        with self.assertRaises(alfred.exceptions.ConnectionError) as ctx:
+            self._client()
+
+        self.assertIsNone(ctx.exception.__cause__)
+        self.assertTrue(ctx.exception.__suppress_context__)
+
+    def test_failing_connect_redacts_the_url_encoded_form_of_the_api_key(self):
+        self.socket.connect.side_effect = OSError(
+            "tried /socket.io/?apiKey=a%2Bb%2Fc%3D and /socket.io/?apiKey=a+b/c="
+        )
+
+        with self.assertRaises(alfred.exceptions.ConnectionError) as ctx:
+            AlfredRealTimeClient(Configuration.v1(), {"api_key": "a+b/c="})
+
+        self.assertNotIn("a%2Bb%2Fc%3D", str(ctx.exception))
+        self.assertNotIn("a+b/c=", str(ctx.exception))
+        self.assertEqual(str(ctx.exception).count("[redacted]"), 2)
+
+    def test_failing_connect_without_an_api_key_keeps_the_error_text(self):
+        self.socket.connect.side_effect = OSError("refused apiKey=None")
+
+        with self.assertRaises(alfred.exceptions.ConnectionError) as ctx:
+            AlfredRealTimeClient(Configuration.v1(), {})
+
+        self.assertIn("refused apiKey=None", str(ctx.exception))
+
     def test_registers_connect_disconnect_and_connect_error_lifecycle_handlers(self):
         self._client()
 
@@ -156,6 +198,31 @@ class TestAlfredRealTimeClient(unittest.TestCase):
         _handlers_by_event(self.socket)["connect_error"]("boom")
 
         error_callback.assert_called_once_with("boom")
+
+    def test_connect_error_handler_keeps_the_api_key_out_of_callback_and_log(self):
+        error_callback = MagicMock()
+        self._client(verbose=True, error_callback=error_callback)
+
+        _handlers_by_event(self.socket)["connect_error"](
+            "refused: /socket.io/?apiKey=key-1&EIO=4"
+        )
+
+        error_callback.assert_called_once_with("refused: /socket.io/?apiKey=[redacted]&EIO=4")
+        self.assertFalse([m for m in self.logs.messages if "key-1" in m])
+        self.assertIn(
+            "Connection error:  refused: /socket.io/?apiKey=[redacted]&EIO=4",
+            self.logs.messages,
+        )
+
+    def test_connect_error_handler_passes_an_error_that_is_not_text_unchanged(self):
+        error_callback = MagicMock()
+        error = {"message": "key-1 is not valid"}
+        self._client(error_callback=error_callback)
+
+        _handlers_by_event(self.socket)["connect_error"](error)
+
+        error_callback.assert_called_once_with(error)
+        self.assertIs(error_callback.call_args[0][0], error)
 
     def test_connect_error_handler_without_error_callback_still_disconnects_without_raising(self):
         self._client()

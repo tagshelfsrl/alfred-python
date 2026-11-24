@@ -1,6 +1,7 @@
 # Native Imports
 from enum import Enum
 from typing import Union
+from urllib.parse import quote
 
 # 3rd Party Imports
 import socketio
@@ -50,7 +51,12 @@ class AlfredRealTimeClient:
         try:
             self.socket.connect(f"{self.base_url}?apiKey={auth_config.get('api_key')}")
         except Exception as err:
-            raise alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
+            # The underlying error quotes the connection URL, API key included:
+            # redact it, and do not chain the original exception, whose own
+            # message would put the key back into tracebacks.
+            raise alfred.exceptions.ConnectionError(
+                f"Could not establish connection with server: {self.__redact(str(err))}"
+            ) from None
 
     def __on_connect(self):
         """
@@ -74,12 +80,26 @@ class AlfredRealTimeClient:
         Args:
           err (str): The error message.
         """
+        err = self.__redact(err)
         if self.verbose:
             self.logger.error("Connection error:  %s", err)
         self.disconnect()
         # trigger error callback:
         if self.error_callback:
             self.error_callback(err)
+
+    def __redact(self, value):
+        """
+        Removes the API key from text that quotes the connection URL, which
+        carries the key as a query parameter. Anything that is not text is
+        returned as it is.
+        """
+        api_key = self.auth_config.get("api_key")
+        if not isinstance(api_key, str) or not api_key or not isinstance(value, str):
+            return value
+        for secret in (api_key, quote(api_key, safe="")):
+            value = value.replace(secret, "[redacted]")
+        return value
 
     def __callback(self, event: Union[FileEvent, JobEvent, EventType], callback):
         """
