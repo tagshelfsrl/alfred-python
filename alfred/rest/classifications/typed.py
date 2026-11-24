@@ -81,9 +81,9 @@ ClassificationResult.__doc__ = (
 )
 
 
-class ClassificationError(TypedDict, total=False):
+class ClassificationFailure(TypedDict, total=False):
     """
-    Error of a failed request: `code` is classification_failed, canceled or failed.
+    The `error` block of a failed request (a dictionary, not an exception): `code` is classification_failed, canceled or failed.
     """
 
     code: str
@@ -123,5 +123,5 @@ class ClassificationResponse(TypedDict, total=False):
     correlation_id: str
     text_truncated: bool
     result: ClassificationResult
-    error: ClassificationError
+    error: ClassificationFailure
     input: ClassificationInput
