@@ -52,7 +52,7 @@ RUN pip install alfred-python
 
 ## Automated audit
 
-The pull request workflow (`.github/workflows/on-pr.yml`) has a `Dependency audit` job. It runs `pip-audit` against `requirements.txt` and fails the pull request when any pinned package has a known vulnerability. It needs no secrets: only package names and versions are sent to the vulnerability database.
+The pull request workflow (`.github/workflows/on-pr.yml`) has a `Dependency audit` job. It runs `pip-audit` against `requirements.txt` and fails the pull request when any pinned package has a known vulnerability. Platform markers are removed first, so the Windows-only `python-magic-bin` is audited too, even though the job runs on Linux. It needs no secrets: only package names and versions are sent to the vulnerability database.
 
 To run the same check locally:
 
@@ -60,7 +60,8 @@ To run the same check locally:
 python -m venv .venv
 . .venv/bin/activate
 pip install pip-audit==2.10.1
-pip-audit -r requirements.txt --no-deps --disable-pip
+sed -E 's/[[:space:]]*;.*$//' requirements.txt > /tmp/audit-requirements.txt
+pip-audit -r /tmp/audit-requirements.txt --no-deps --disable-pip
 ```
 
 To check what a fresh install of the SDK resolves, rather than the pinned set:
