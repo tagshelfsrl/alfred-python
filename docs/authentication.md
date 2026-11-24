@@ -115,15 +115,17 @@ auth_config = AuthConfiguration({"api_key": os.environ["ALFRED_API_KEY"]})
 realtime_client = AlfredRealTimeClient(Configuration.v1(), auth_config)
 ```
 
-## Credentials are never logged by the SDK
+## Credentials in logs
 
-When debug logging is on, the SDK logs each request and the headers it sent, but leaves out the `Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers. See [configuration.md](configuration.md#logging). One exception: the real-time client passes the API key in the query string of its connection URL, so error messages about a failed connection can contain the key. See [realtime.md](realtime.md#failure-modes).
+With debug logging on, the SDK logs each request with its headers and leaves out the `Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers. It also logs request bodies that are text, so treat `DEBUG` logs as sensitive. [configuration.md](configuration.md#logging) describes what is logged, and [errors.md](errors.md#logging-and-redaction) what is redacted.
+
+The real-time client passes the API key in the query string of its connection URL. The SDK keeps the key out of its own error messages and log lines, but anything else that records that URL, such as a proxy, can show it. See [realtime.md](realtime.md#failure-modes).
 
 ## Errors worth handling
 
 - Building the client without any credentials fails immediately. See [errors.md](errors.md).
 - A key that is wrong, revoked or past its grace period is answered with `401 Unauthorized` on every request. With OAuth, one automatic token refresh is attempted first. See [errors.md](errors.md).
-- Alfred also rejects requests with no `User-Agent` header (`403 Forbidden`). The SDK uses `requests`, which always sends one, so you only meet this if you supply your own HTTP client.
+- Alfred also rejects requests with no `User-Agent` header (`403 Forbidden`). The SDK always sends one, so you only meet this if you supply your own HTTP client.
 
 ## See also
 
