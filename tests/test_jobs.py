@@ -52,25 +52,15 @@ class TestFactory(unittest.TestCase):
             JobsFactory.create(2, RecordingHttpClient())
         self.assertIn("Unsupported version: 2", str(ctx.exception))
 
-    def test_abstract_methods_have_docs_and_cannot_be_instantiated(self):
+    def test_base_class_is_abstract(self):
         with self.assertRaises(TypeError):
             JobsBase()
-        # Calling the abstract bodies through a subclass reaches the docstrings.
-        names = ["create", "get", "get_all", "cancel", "restart", "check_sources"]
-
-        class Impl(JobsBase):
-            pass
-
-        for name in names:
-            setattr(Impl, name, getattr(JobsBase, name))
-        Impl.__abstractmethods__ = frozenset()
-        impl = Impl()
-        self.assertIsNone(impl.create({}))
-        self.assertIsNone(impl.get("x"))
-        self.assertIsNone(impl.get_all())
-        self.assertIsNone(impl.cancel("x"))
-        self.assertIsNone(impl.restart("x"))
-        self.assertIsNone(impl.check_sources("x"))
+        self.assertEqual(
+            JobsBase.__abstractmethods__,
+            frozenset(
+                ["create", "get", "get_all", "cancel", "restart", "check_sources"]
+            ),
+        )
 
     def test_job_view_values(self):
         self.assertEqual(JobView.SUMMARY.value, "summary")
@@ -384,9 +374,72 @@ class TestGetAllResponse(unittest.TestCase):
         jobs, _ = make({"items": "oops", "total": 0})
         self.assertEqual(jobs.get_all()["items"], [])
 
-    def test_empty_dict_payload_becomes_empty_envelope_items(self):
+    def test_empty_dict_payload_becomes_a_complete_empty_envelope(self):
         jobs, _ = make({})
-        self.assertEqual(jobs.get_all(), {"items": []})
+        self.assertEqual(
+            jobs.get_all(),
+            {"items": [], "page": 1, "page_size": 10, "total": 0, "has_more": False},
+        )
+
+    def test_new_envelope_missing_keys_are_filled_from_the_request(self):
+        jobs, _ = make({"items": [{"id": "a"}], "total": 60})
+        self.assertEqual(
+            jobs.get_all(page_size=25, page=2),
+            {
+                "items": [{"id": "a"}],
+                "page": 2,
+                "page_size": 25,
+                "total": 60,
+                "has_more": True,
+            },
+        )
+
+    def test_missing_total_falls_back_to_the_number_of_items(self):
+        jobs, _ = make({"items": [{"id": "a"}, {"id": "b"}]})
+        result = jobs.get_all()
+        self.assertEqual(result["total"], 2)
+        self.assertFalse(result["has_more"])
+
+    def test_server_has_more_is_kept_even_when_it_disagrees(self):
+        jobs, _ = make(
+            {"items": [], "page": 1, "page_size": 10, "total": 500, "has_more": False}
+        )
+        self.assertFalse(jobs.get_all()["has_more"])
+
+    def test_non_boolean_has_more_is_recomputed(self):
+        jobs, _ = make(
+            {"items": [], "page": 1, "page_size": 10, "total": 500, "has_more": "yes"}
+        )
+        self.assertIs(jobs.get_all()["has_more"], True)
+
+    def test_numeric_strings_are_read_and_other_junk_falls_back(self):
+        jobs, _ = make(
+            {"items": [], "page": " 3 ", "page_size": "abc", "total": True}
+        )
+        result = jobs.get_all(page_size="50")
+        self.assertEqual(result["page"], 3)
+        self.assertEqual(result["page_size"], 50)
+        self.assertEqual(result["total"], 0)
+        self.assertFalse(result["has_more"])
+
+    def test_legacy_envelope_with_string_page_size_does_not_crash(self):
+        jobs, _ = make({"result": [], "total": 30})
+        result = jobs.get_all(page_size="10", page=None)
+        self.assertEqual(result["page_size"], 10)
+        self.assertTrue(result["has_more"])
+
+    def test_bare_list_payload_becomes_a_single_page(self):
+        jobs, _ = make([{"id": "a", "metadata": "{\"k\": 1}"}, {"id": "b"}])
+        self.assertEqual(
+            jobs.get_all(),
+            {
+                "items": [{"id": "a", "metadata": {"k": 1}}, {"id": "b"}],
+                "page": 1,
+                "page_size": 10,
+                "total": 2,
+                "has_more": False,
+            },
+        )
 
     def test_legacy_envelope_is_converted(self):
         jobs, _ = make({"result": [{"id": "a"}], "total": 42, "is_empty": False})
@@ -431,8 +484,8 @@ class TestGetAllResponse(unittest.TestCase):
             {"items": [], "page": 1, "page_size": 10, "total": 0, "has_more": False},
         )
 
-    def test_non_dict_payloads_pass_through(self):
-        for payload in (None, [1, 2], "x"):
+    def test_other_payloads_pass_through(self):
+        for payload in (None, "x", 7):
             jobs, _ = make(payload)
             self.assertEqual(jobs.get_all(), payload)
 

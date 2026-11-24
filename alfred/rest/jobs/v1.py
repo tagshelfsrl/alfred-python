@@ -291,43 +291,58 @@ class Jobs(JobsBase):
         Return the page envelope whatever shape the server answered with.
 
         New servers answer `items`/`page`/`page_size`/`total`/`has_more`; older
-        ones `result`/`total`/`is_empty`, which is converted. Anything that is
-        not a dict is returned untouched.
+        ones `result`/`total`/`is_empty`, which is converted. A bare list is
+        taken as the items of a single page. The five envelope keys are always
+        present: a value the server did not send is filled in from what was
+        requested. Anything else that is not a dict is returned untouched.
         """
+        if isinstance(payload, list):
+            payload = {"items": payload}
         if not isinstance(payload, dict):
             return payload
 
         response = dict(payload)
 
-        if "items" in response or "result" not in response:
-            raw_items = response.get("items")
-            legacy = False
-        else:
+        if "items" not in response and "result" in response:
             raw_items = response.pop("result")
             response.pop("is_empty", None)
-            legacy = True
+        else:
+            raw_items = response.get("items")
 
         if not isinstance(raw_items, list):
             raw_items = []
-        response["items"] = [
-            self.__normalize_job(item, wants_metadata) for item in raw_items
-        ]
+        items = [self.__normalize_job(item, wants_metadata) for item in raw_items]
+        response["items"] = items
 
-        if legacy:
-            page = requested_page if requested_page is not None else DEFAULT_PAGE
-            page_size = (
-                requested_page_size
-                if requested_page_size is not None
-                else DEFAULT_PAGE_SIZE
-            )
-            total = response.get("total")
-            total = total if isinstance(total, int) else 0
-            response["page"] = page
-            response["page_size"] = page_size
-            response["total"] = total
+        page = self.__int_or(
+            response.get("page"), self.__int_or(requested_page, DEFAULT_PAGE)
+        )
+        page_size = self.__int_or(
+            response.get("page_size"),
+            self.__int_or(requested_page_size, DEFAULT_PAGE_SIZE),
+        )
+        total = self.__int_or(response.get("total"), len(items))
+        response["page"] = page
+        response["page_size"] = page_size
+        response["total"] = total
+        if not isinstance(response.get("has_more"), bool):
             response["has_more"] = page * page_size < total
 
         return response
+
+    @staticmethod
+    def __int_or(value: Any, default: int) -> int:
+        """Return value as an int when it is one (or a numeric string), else default."""
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            try:
+                return int(value.strip())
+            except ValueError:
+                return default
+        return default
 
     def __normalize_job(self, job: Any, wants_metadata: bool) -> Any:
         """
