@@ -1,11 +1,6 @@
 import unittest
 
-from alfred.base.constants import (
-    RESPONSE_TYPE_HEADER_MAPPING,
-    EventType,
-    FileEvent,
-    JobEvent,
-)
+from alfred.base.constants import RESPONSE_TYPE_HEADER_MAPPING, EventType
 from alfred.base.config import Configuration
 from alfred.base.typed import ResponseType
 
@@ -17,39 +12,10 @@ V1_DEFAULTS = {
 
 # Wire values are a public contract with the Alfred server. Changing one of
 # these is a breaking change, so the table is pinned on purpose.
+# The names of the single events are pinned in tests/test_constants.py.
 EVENT_TYPE_WIRE_VALUES = {
     "JOB_EVENT": "job_event",
     "FILE_EVENT": "file_event",
-}
-
-FILE_EVENT_WIRE_VALUES = {
-    "FILE_ADD_TO_JOB_EVENT": "file_add_to_job_event",
-    "FILE_CATEGORY_CREATE_EVENT": "file_category_create_event",
-    "FILE_CATEGORY_DELETE_EVENT": "file_category_delete_event",
-    "FILE_CHANGE_TAG_EVENT": "file_change_tag_event",
-    "FILE_DONE_EVENT": "file_done_event",
-    "FILE_EXTRACTED_DATA_CREATE_EVENT": "file_extracted_data_create_event",
-    "FILE_EXTRACTED_DATA_DELETE_EVENT": "file_extracted_data_delete_event",
-    "FILE_FAILED_EVENT": "file_failed_event",
-    "FILE_MOVE_EVENT": "file_move_event",
-    "FILE_MOVE_TO_PENDING_EVENT": "file_move_to_pending_event",
-    "FILE_MOVE_TO_RECYCLE_BIN_EVENT": "file_move_to_recycle_bin_event",
-    "FILE_PROPERTY_CREATE_EVENT": "file_property_create_event",
-    "FILE_PROPERTY_DELETE_EVENT": "file_property_delete_event",
-    "FILE_REMOVE_TAG_EVENT": "file_remove_tag_event",
-    "FILE_STATUS_UPDATE_EVENT": "file_status_update_event",
-    "FILE_UPDATE_EVENT": "file_update_event",
-}
-
-JOB_EVENT_WIRE_VALUES = {
-    "JOB_CREATE_EVENT": "job_create_event",
-    "JOB_EXCEEDED_RETRIES_EVENT": "job_exceeded_retries_event",
-    "JOB_FAILED_EVENT": "job_failed_event",
-    "JOB_FINISHED_EVENT": "job_finished_event",
-    "JOB_INVALID_EVENT": "job_invalid_event",
-    "JOB_RETRY_EVENT": "job_retry_event",
-    "JOB_STAGE_UPDATE_EVENT": "job_stage_update_event",
-    "JOB_START_EVENT": "job_start_event",
 }
 
 
@@ -84,18 +50,6 @@ class TestEventWireValues(unittest.TestCase):
         self.assertEqual(
             {member.name: member.value for member in EventType},
             EVENT_TYPE_WIRE_VALUES,
-        )
-
-    def test_file_event_members_and_wire_values_are_pinned(self):
-        self.assertEqual(
-            {member.name: member.value for member in FileEvent},
-            FILE_EVENT_WIRE_VALUES,
-        )
-
-    def test_job_event_members_and_wire_values_are_pinned(self):
-        self.assertEqual(
-            {member.name: member.value for member in JobEvent},
-            JOB_EVENT_WIRE_VALUES,
         )
 
 
