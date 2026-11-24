@@ -164,9 +164,11 @@ Example response:
 ```python
 file = client.files.get("559167cb-4c76-4e28-bf15-34cbf614119c")
 
+READABLE = ("finished", "confirmation_required", "pending_job_validation")
+
 ready = file.get("is_result_ready")
 if ready is None:  # an Alfred older than 1.130.0 does not send the field
-    ready = file["status"] == "finished"
+    ready = file["status"] in READABLE
 
 if ready:
     values = client.data_points.get_values(file["id"])
@@ -178,7 +180,7 @@ else:
 
 A file that is not a processing unit never becomes ready. That is a parent Alfred split into parts (read the parts instead) or a `member` page of a group (its extraction belongs to the group's `virtual` file). The files of a job carry the same four fields, so you can pick the ready ones from [`jobs.get`](jobs.md) with the full view without asking for each file.
 
-`is_result_ready`, `is_processing_unit`, `group_role` and `group_id` are sent by Alfred 1.130.0 and later. On an earlier version they are absent, and `status` is what there is to go by, as the example does.
+`is_result_ready`, `is_processing_unit`, `group_role` and `group_id` are sent by Alfred 1.130.0 and later. On an earlier version they are absent, and `status` is what there is to go by: the example treats the same three statuses as readable.
 
 Errors worth handling (see [errors.md](errors.md)): a `404` when the file does not exist or belongs to another account (the response has no body), and a `409` when the file exists but is not in a state that can be read yet. A `409` is worth retrying after a few seconds.
 
