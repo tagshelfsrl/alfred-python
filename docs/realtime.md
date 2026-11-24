@@ -125,7 +125,7 @@ If the initial connection fails, `error_callback` is called first and then the c
 
 Subscribe after the client is constructed. Each method takes one callback, which receives the event data as its only argument: the decoded JSON (normally a dictionary).
 
-A subscription is a name. Registering a second callback for a name you already used replaces the first one; there is one callback per name.
+You can subscribe to a whole stream of events (`on_job_event`, `on_file_event`) or to one kind of event (`on`). A subscription is a name. Registering a second callback for a name you already used replaces the first one; there is one callback per name.
 
 ### `on_job_event`
 
@@ -153,25 +153,59 @@ realtime_client.on_file_event(handle_file_event)
 
 ### `on`
 
-`realtime_client.on(event, callback)` subscribes to a socket event by its name. The Alfred socket server sends exactly two event names, `job_event` and `file_event` (the values of `alfred.base.constants.EventType`), so `on("job_event", callback)` is the same subscription as `on_job_event(callback)`.
-
-There is no per-event subscription on the server. Every job event arrives as `job_event` and every file event as `file_event`; what happened is in the `event_name` field of the data, for example `alfred_event_job_finished`. To react to one kind of event, subscribe to the stream and test `event_name`:
+`realtime_client.on(event, callback)` subscribes to one kind of event. `event` is a member of `JobEvent` or `FileEvent` (both in `alfred.base.constants`), or the event's name as a string:
 
 ```python
-def handle_job_event(data):
-    name = data.get("event_name")
-    if name == "alfred_event_job_finished":
-        print("finished:", data["job_id"])
-    elif name == "alfred_event_job_failed":
-        print("failed:", data["job_id"], data.get("error_messages"))
+from alfred.base.constants import FileEvent, JobEvent
 
 
-realtime_client.on_job_event(handle_job_event)
+def job_finished(data):
+    print("finished:", data["job_id"])
+
+
+def job_failed(data):
+    print("failed:", data["job_id"], data.get("error_messages"))
+
+
+def file_done(data):
+    print("file done:", data["file_id"])
+
+
+realtime_client.on(JobEvent.JOB_FINISHED_EVENT, job_finished)
+realtime_client.on("alfred_event_job_failed", job_failed)
+realtime_client.on(FileEvent.FILE_DONE_EVENT, file_done)
 ```
 
-The members of `JobEvent` and `FileEvent` in `alfred.base.constants` (`job_finished_event`, `file_done_event` and so on) are not names the server sends, neither as socket events nor in `event_name`. A callback registered with one of them, as earlier versions of the README showed, is never called. Use the two streams and the `event_name` values in the [event catalogue](#event-catalogue).
+How it works: the Alfred socket server has no per-event subscription. It sends every job event as `job_event` and every file event as `file_event`, and says what happened in the `event_name` field of the data, for example `alfred_event_job_finished`. The SDK listens to the stream the event belongs to and calls your callback only for data whose `event_name` matches. Every event of that stream still travels over the connection; the filtering happens in your process.
 
-Alfred also defines a third stream, `bulk_task_event`, for bulk operations, but version 1.130.0 sends nothing on it. The SDK has no helper for it; `on("bulk_task_event", callback)` subscribes to it.
+The values of `JobEvent` and `FileEvent` are the `event_name` values (with the two exceptions described below), so `data["event_name"] == JobEvent.JOB_FINISHED_EVENT.value` is also a valid test inside a stream callback. The [event catalogue](#event-catalogue) lists every name.
+
+Rules:
+
+- One callback per event name: a second registration for the same name replaces the first.
+- A stream callback and an event callback are separate subscriptions. If you register both `on_job_event` and `on(JobEvent.JOB_FINISHED_EVENT, ...)`, a finished job calls both, the stream callback first. Every callback of an event runs even when an earlier one raises.
+- Any name that starts with `alfred_event_job_` or `alfred_event_file_` is accepted, including names newer than this version of the SDK.
+- `on("job_event", callback)` and `on(EventType.JOB_EVENT, callback)` are the same subscription as `on_job_event(callback)`, and likewise for `file_event`.
+- Any other name is treated as the name of a socket event. The SDK logs a warning when you register it, because the callback only runs if the server emits a socket event with that name.
+
+Alfred also defines a third stream, `bulk_task_event`, for bulk operations, but version 1.130.0 sends nothing on it. The SDK has no helper for it; `on("bulk_task_event", callback)` subscribes to the stream, and names that start with `alfred_event_bulk_task_` are routed to it.
+
+#### Tag removals and exhausted retries
+
+Two events have no name of their own on the server:
+
+| Member | What Alfred sends | How the SDK recognises it |
+| --- | --- | --- |
+| `FileEvent.FILE_REMOVE_TAG_EVENT` | `alfred_event_file_change_tag` | The data carries `tag_being_removed_id`. |
+| `JobEvent.JOB_EXCEEDED_RETRIES_EVENT` | `alfred_event_job_retry` | `exceeded_retries` is `true`. |
+
+Each is still a subscription of its own: its callback runs only for those events. `FileEvent.FILE_CHANGE_TAG_EVENT` and `JobEvent.JOB_RETRY_EVENT` receive every event sent under their name, so a tag removal calls the change-tag callback and then the removal callback when both are registered. The `event_name` in the data is always the one Alfred sent: the values of these two members (`alfred_event_file_remove_tag` and `alfred_event_job_exceeded_retries`) are names the SDK gives the subscriptions, and they do not appear in the data.
+
+#### Names from earlier versions
+
+Earlier versions of the SDK listed event names such as `job_finished_event` and `file_done_event`. The server never sent them, so a callback registered with one was never called. They are now accepted as other spellings of the real names: `on("job_finished_event", callback)` subscribes to `alfred_event_job_finished`.
+
+If you upgrade code that registered such callbacks, they start receiving events. Check that the same event is not also handled in a stream callback you wrote in the meantime, or it will be processed twice.
 
 ### Register callbacks early
 
@@ -180,6 +214,8 @@ The socket connects in the constructor, so there is a short window before your `
 ## Event catalogue
 
 The socket server forwards the events Alfred publishes, to the account the API key belongs to and to no one else. Each one arrives as a `job_event` or a `file_event`, and your callback receives the event's fields as a dictionary. The SDK passes that dictionary on unchanged. The names and fields below are those of Alfred 1.130.0.
+
+Each name has a member in `JobEvent` or `FileEvent`: drop `alfred_event_`, write the rest in upper case and add `_EVENT`, so `alfred_event_job_finished` is `JobEvent.JOB_FINISHED_EVENT`. The one exception is `alfred_event_file_added_to_job`, which is `FileEvent.FILE_ADD_TO_JOB_EVENT`. Two more members, for tag removals and exhausted retries, have no name of their own in these tables; see [Tag removals and exhausted retries](#tag-removals-and-exhausted-retries).
 
 Fields every event has:
 
@@ -220,7 +256,7 @@ All of these arrive as `job_event`. Every one carries `job_id` and `correlation_
 | `alfred_event_job_create` | A job is created. | `user_name`, `merge`, `metadata`, `file_count`, `file_urls` |
 | `alfred_event_job_start` | The job begins processing. | |
 | `alfred_event_job_stage_update` | The job moves to another stage. | `stage` |
-| `alfred_event_job_retry` | The job has failed and used up its retries. It follows `alfred_event_job_failed`, with `exceeded_retries` set to `true`. Despite the name, Alfred 1.130.0 does not send it when a job is retried. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
+| `alfred_event_job_retry` | The job has failed and used up its retries. It follows `alfred_event_job_failed`, with `exceeded_retries` set to `true`. Despite the name, Alfred 1.130.0 does not send it when a job is retried. `JobEvent.JOB_EXCEEDED_RETRIES_EVENT` subscribes to exactly this case. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
 | `alfred_event_job_invalid` | The job fails the validation of its input. | `retries`, `exceeded_retries`, `error_messages`, `has_broken_input_sources` |
 | `alfred_event_job_failed` | The job stops on an error it cannot recover from. | `retries`, `exceeded_retries`, `error_messages` |
 | `alfred_event_job_cancelled` | The job is cancelled. | `cancellation_reason`, `error_messages` |
@@ -240,7 +276,7 @@ All of these arrive as `file_event`. Unless noted, each carries `job_id`, `creat
 | `alfred_event_file_update` | The file's record is updated. Alfred 1.130.0 defines this event but does not send it. | `file_id`, `file_log_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
 | `alfred_event_file_status_update` | The file's status changes. | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `manual_classification`, `classification_score`, `classification_status`, `file_status` |
 | `alfred_event_file_change_tag` | The file's tag (document type) changes. | `file_id`, `previous_tag_id`, `previous_tag_name`, `proposed_tag_id`, `classification_score`, `new_tag_id`, `new_tag_name` (no dates) |
-| `alfred_event_file_change_tag` | The file's tag is removed. It has the same name as a tag change and different fields. | `file_id`, `tag_being_removed_id`, `tag_being_removed_name`, `classification_score` (no dates) |
+| `alfred_event_file_change_tag` | The file's tag is removed. It has the same name as a tag change and different fields. `FileEvent.FILE_REMOVE_TAG_EVENT` subscribes to this case alone. | `file_id`, `tag_being_removed_id`, `tag_being_removed_name`, `classification_score` (no dates) |
 | `alfred_event_file_category_create` | A category is recorded for the file. | `file_log_id`, `description`, `confidence` |
 | `alfred_event_file_category_delete` | A category of the file is deleted. | `file_log_id`, `description`, `confidence` |
 | `alfred_event_file_extracted_data_create` | Content extracted from the file is stored. | `file_log_id`, `content`, `provider` |
@@ -259,7 +295,7 @@ The events that identify the file by `file_log_id` do not carry `file_id`.
 
 ### Names in the public Event API pages
 
-The public pages at <https://docs.tagshelf.dev/event-api> describe the same events as webhook deliveries, and their examples use other spellings: `job_finished_event` where the socket sends `alfred_event_job_finished`, and `job_event_type` where it sends `job_event`. The names in the tables above are the ones this client receives.
+The public pages at <https://docs.tagshelf.dev/event-api> describe the same events as webhook deliveries, and their examples use other spellings: `job_finished_event` where the socket sends `alfred_event_job_finished`, and `job_event_type` where it sends `job_event`. The names in the tables above are the ones this client receives. `on` also accepts the `..._event` spellings (see [Names from earlier versions](#names-from-earlier-versions)), but the data always carries the `alfred_event_...` name.
 
 ## Verbose mode and logging
 
@@ -269,7 +305,7 @@ The SDK logs through the `alfred-python` logger (see [configuration.md](configur
 | --- | --- | --- |
 | `Attempting to establish a connection...` | DEBUG | Only with `verbose=True`, before connecting. |
 | `Successfully connected to: <url>` | INFO | Each time a connection is established. The URL is the `realtime_url`, without the key. |
-| `Event <name> received: <data>` | DEBUG | Only with `verbose=True`, for every event delivered to a callback. |
+| `Event <stream> received: <data>` | DEBUG | Only with `verbose=True`, for every event that arrives on a stream you subscribed to, or on the stream of an event you subscribed to, whether or not a callback matches it. |
 | `Disconnected from the server.` | INFO | Only with `verbose=True`, when the connection closes. |
 | `Connection error:  <error>` | ERROR | Only with `verbose=True`, when a connection attempt fails. |
 | `Closing connection...` | INFO | Every time `disconnect()` runs, which includes each failed connection attempt (see below). |
@@ -462,8 +498,8 @@ The socket server checks the key when the client connects: it reads `apiKey` fro
 ## Limitations
 
 - Credentials: API key only, sent in the URL's query string.
-- Two streams only, `job_event` and `file_event`: the server has no per-event subscription, so filter by `event_name`, `job_id` or `file_id` in your callback. The `JobEvent` and `FileEvent` enums do not hold names the server sends.
-- One callback per stream (a new registration replaces the old one), and no way to remove one other than replacing it.
+- The server has no per-event subscription: `on` filters by `event_name` inside the client, and there is no filter by job or file. Test `job_id` or `file_id` in your callback.
+- One callback per stream and one per event name (a new registration replaces the old one), and no way to remove one other than replacing it.
 - No replay of missed events, and no reconnection hook beyond `on_connect`.
 - Callbacks are concurrent and unordered (see [Threading](#threading)).
 - `disconnect()` does not cancel a reconnection in progress.
