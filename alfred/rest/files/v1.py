@@ -1,8 +1,8 @@
 # Native imports
 import os
 import json
+from email.message import Message
 from typing import Text
-from urllib.parse import unquote
 
 # Project imports
 from alfred.rest.files.typed import *  # pylint: disable=W0401, W0614
@@ -79,12 +79,9 @@ class Files(FilesBase):
         Args:
         - content_disposition: Value of the Content-Disposition header.
         """
-        filename = None
-        if "filename*" in content_disposition:
-            filename = content_disposition.split("filename*=UTF-8''")[-1]
-            filename = unquote(filename)
-        elif "filename=" in content_disposition:
-            filename = content_disposition.split("filename=")[-1]
-            filename = filename.strip("\"'")
+        if not content_disposition:
+            return None
 
-        return filename
+        message = Message()
+        message["Content-Disposition"] = content_disposition
+        return message.get_filename()
