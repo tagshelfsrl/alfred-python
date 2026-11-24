@@ -2,16 +2,20 @@
 import base64
 import hashlib
 import hmac
+import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from importlib import metadata
 from typing import Dict, Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from time import time, sleep
 from uuid import uuid4
 from xml.etree import ElementTree as ET
 
 # 3rd party imports
 from requests import Session, Request, PreparedRequest, Response
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import ConnectTimeout, RequestException, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -20,7 +24,54 @@ from .typed import *  # pylint: disable=W0401, W0614
 from ..base.typed import ResponseType
 from ..base.constants import RESPONSE_TYPE_HEADER_MAPPING
 from ..base.exceptions import AlfredMissingAuthException
-from ..utils import logging
+from ..exceptions import (
+    AlfredApiError,
+    AlfredAuthenticationError,
+    AlfredConnectionError,
+    AlfredConnectTimeoutError,
+    AlfredRequestError,
+    AlfredResponseParseError,
+    AlfredTimeoutError,
+    MAX_MESSAGE_LENGTH,
+)
+
+# Statuses urllib3 retries. Only for methods urllib3 considers idempotent
+# (GET, HEAD, PUT, DELETE, OPTIONS, TRACE): a POST is never re-sent because of
+# a status, since the server may already have acted on it.
+RETRY_STATUS_FORCELIST = (429, 500, 502, 503, 504)
+
+# Headers that must never reach the logs.
+SENSITIVE_HEADERS = ("authorization", "proxy-authorization", "cookie", "x-tagshelfapi-key")
+
+
+def _default_user_agent() -> Text:
+    """
+    Descriptive User-Agent. The API rejects requests that have none.
+    """
+    try:
+        return f"alfred-python/{metadata.version('alfred-python')}"
+    except Exception:  # pylint: disable=broad-except
+        return "alfred-python"
+
+
+def _cap_detail(text: Text, query: Text) -> Text:
+    """
+    Shorten the text of a transport error and remove the URL query string,
+    which could carry keys.
+    """
+    if query:
+        text = text.replace(query, "[query removed]")
+    text = " ".join(text.split())
+    if len(text) > MAX_MESSAGE_LENGTH:
+        text = text[: MAX_MESSAGE_LENGTH - 3] + "..."
+    return text
+
+
+def _to_int(value: Any) -> Optional[int]:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
 
 
 class HttpClient:
@@ -31,6 +82,7 @@ class HttpClient:
     auth_config: AuthConfiguration
     auth_method: Optional[AuthMethod] = None
     token: Optional[Text] = None
+    # Kept for backward compatibility; the token refresh no longer needs a counter.
     refresh_token_retry_count: int = 0
     response_type: ResponseType = ResponseType.JSON
     rate_limit: Optional[Dict[str, Any]] = None
@@ -57,7 +109,9 @@ class HttpClient:
             - config.timeout: Timeout for the requests in seconds. Should be higher than
             zero (default: 5).
             - config.max_retries: Maximum number of retries each request should
-            attempt (default: 3).
+            attempt (default: 3). Zero disables retries.
+            - config.retry_backoff_factor: Backoff factor between retries in seconds
+            (default: 1). Zero retries without waiting.
             - config.response_type {ResponseType}: Specifies the expected format of the response data (default: JSON).
             - config.throttle_delay: Delay in seconds to throttle requests (default: 1).
             - config.throttle_threshold: Percentage of rate limit remaining to throttle requests (default: 20).
@@ -74,14 +128,22 @@ class HttpClient:
 
         # Setup retry strategy
         self.max_retries = config.get("max_retries", 3)
-        if self.max_retries <= 0:
+        if self.max_retries < 0:
+            raise ValueError(f"Max retries ({self.max_retries}) cannot be negative.")
+        self.retry_backoff_factor = config.get("retry_backoff_factor", 1)
+        if self.retry_backoff_factor < 0:
             raise ValueError(
-                f"Max retries ({self.max_retries}) cannot be zero or less."
+                f"Retry backoff factor ({self.retry_backoff_factor}) cannot be negative."
             )
+        # raise_on_status=False: when retries run out the caller gets the last
+        # response, which becomes a typed error with the server's message,
+        # instead of an opaque requests RetryError.
         retry_strategy = Retry(
             total=self.max_retries,
-            status_forcelist=[429, 500, 502, 503, 504],
-            backoff_factor=1,
+            status_forcelist=list(RETRY_STATUS_FORCELIST),
+            backoff_factor=self.retry_backoff_factor,
+            respect_retry_after_header=True,
+            raise_on_status=False,
         )
 
         # Setup timeout
@@ -106,7 +168,7 @@ class HttpClient:
         pool_maxsize = 1
         if config.get("pool_connections", True):
             pool_size = 10
-            pool_maxsize = min(32, os.cpu_count() + 4)
+            pool_maxsize = min(32, (os.cpu_count() or 1) + 4)
 
         adapter = HTTPAdapter(
             pool_maxsize=pool_maxsize,
@@ -115,6 +177,7 @@ class HttpClient:
         )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
+        self.session.headers["User-Agent"] = _default_user_agent()
 
         # Setup API key (if any)
         self.__auth_with_api_key(self.auth_config.get("api_key"))
@@ -136,30 +199,30 @@ class HttpClient:
 
     def __response_interceptor(self, response: Response, *args, **kwargs):
         """
-        Intercepts the response and raises an exception if the status code is not 200.
+        Records the rate limit headers of every response. Missing or malformed
+        headers mean "unknown", never "zero".
         """
-        # Extract rate limit headers
-        self.rate_limit = {
-            "limit": int(response.headers.get("X-RateLimit-Limit", 0)),
-            "remaining": int(response.headers.get("X-RateLimit-Remaining", 0)),
-            "reset_time": datetime.utcfromtimestamp(
-                int(response.headers.get("X-RateLimit-Reset", 0))
-            ),
-        }
+        limit = _to_int(response.headers.get("X-RateLimit-Limit"))
+        remaining = _to_int(response.headers.get("X-RateLimit-Remaining"))
+        reset = _to_int(response.headers.get("X-RateLimit-Reset"))
 
-        # if the response is unauthorized, attempt to re-authenticate OAuth
-        if (
-            response.status_code == 401
-            and self.auth_method == AuthMethod.OAUTH
-            and self.refresh_token_retry_count == 0
-        ):
-            self.refresh_token_retry_count += 1
-            self.token = None
-            self.__auth_with_oauth(response.request)
-            response = self.session.send(response.request)
-            if response.status_code != 401:
-                self.refresh_token_retry_count = 0
-            return response
+        reset_time = None
+        if reset is not None:
+            try:
+                reset_time = datetime.fromtimestamp(reset, tz=timezone.utc).replace(
+                    tzinfo=None
+                )
+            except (OverflowError, OSError, ValueError):
+                reset_time = None
+
+        if limit is None and remaining is None and reset_time is None:
+            self.rate_limit = None
+        else:
+            self.rate_limit = {
+                "limit": limit,
+                "remaining": remaining,
+                "reset_time": reset_time,
+            }
 
     def __auth_with_api_key(self, api_key: Text):
         """
@@ -200,19 +263,40 @@ class HttpClient:
         Args:
         - username: A string that represents the username used for authentication.
         - password: A string that represents the user's password used for authentication.
+
+        Raises AlfredAuthenticationError if the API refuses the credentials or
+        answers without an access token.
         """
         data = {"grant_type": "password", "username": username, "password": password}
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        _, response = self.request(
+        response = self.__perform(
             HttpMethod.POST,
             "/token",
             data=data,
             headers=headers,
             skip_auth=True,
+            error_class=AlfredAuthenticationError,
         )
-        response_json = response.json()
-        return response_json.get("access_token")
+
+        def failure(message: Text):
+            return AlfredAuthenticationError(
+                message,
+                status_code=response.status_code,
+                response=response,
+                method=response.request.method,
+                url=response.request.url,
+            )
+
+        try:
+            response_json = response.json()
+        except ValueError as exc:
+            raise failure("The token response was not valid JSON.") from exc
+
+        token = response_json.get("access_token") if isinstance(response_json, dict) else None
+        if not isinstance(token, str) or not token:
+            raise failure("The token response did not contain an access_token.")
+        return token
 
     def __auth_with_hmac(self, prepped_request: PreparedRequest):
         """
@@ -231,9 +315,13 @@ class HttpClient:
         request_timestamp = str(int(time()))
         request_content = ""
 
-        if prepped_request.body:
+        # requests produces a str body for form data and bytes for JSON and multipart.
+        body = prepped_request.body
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        if isinstance(body, (bytes, bytearray)) and body:
             md5_hash = hashlib.md5()
-            md5_hash.update(prepped_request.body.encode("utf-8"))
+            md5_hash.update(body)
             request_content = base64.b64encode(md5_hash.digest()).decode("utf-8")
 
         # Prepare the signature
@@ -284,8 +372,12 @@ class HttpClient:
         - response: HTTP response
         """
 
-        # Get the response type based on the content type header.
-        content_type = response.headers.get("Content-Type").split(";")[0]
+        # An empty body (204, empty 200) has nothing to parse.
+        if not response.content:
+            return None
+
+        # Get the response type based on the content type header. Without one, treat it as text.
+        content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         reversed_response_type_header_mapping = {
             v: k for k, v in RESPONSE_TYPE_HEADER_MAPPING.items()
         }
@@ -296,14 +388,36 @@ class HttpClient:
                 return ET.fromstring(response.text)
             elif response_type == ResponseType.JSON:
                 return response.json()
-            elif response_type == ResponseType.TEXT:
-                return response.text
             else:
                 return response.text
         except Exception as e:
-            raise ValueError(f"Failed to parse response: {e}")
+            raise AlfredResponseParseError(
+                f"Failed to parse response: {e}", response=response
+            ) from e
 
-    def request(
+    def __send(self, prepped_request: PreparedRequest, timeout: float) -> Response:
+        """
+        Sends a prepared request, turning transport failures into SDK errors.
+        """
+        try:
+            return self.session.send(prepped_request, timeout=timeout)
+        except RequestException as exc:
+            method = prepped_request.method
+            url = prepped_request.url
+            # urllib3 messages quote the URL, query string included.
+            detail = _cap_detail(str(exc), urlsplit(url).query)
+            kwargs = {"method": method, "url": url, "request": prepped_request}
+            if isinstance(exc, ConnectTimeout):
+                error = AlfredConnectTimeoutError(f"Connection timed out: {detail}", **kwargs)
+            elif isinstance(exc, Timeout):
+                error = AlfredTimeoutError(f"Request timed out: {detail}", **kwargs)
+            elif isinstance(exc, RequestsConnectionError):
+                error = AlfredConnectionError(f"Connection failed: {detail}", **kwargs)
+            else:
+                error = AlfredRequestError(f"Request failed: {detail}", **kwargs)
+            raise error from exc
+
+    def __perform(
         self,
         method: HttpMethod,
         uri: Text,
@@ -313,17 +427,10 @@ class HttpClient:
         files: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = None,
         skip_auth: Optional[bool] = False,
-    ):
+        error_class: Optional[type] = None,
+    ) -> Response:
         """
-        Makes a request to the Alfred API using the configured HTTP client.
-
-        Args:
-        - method: HTTP method.
-        - uri: Fully qualified URI.
-        - params: Query string parameters.
-        - data: Body data.
-        - headers: HTTP headers.
-        - timeout: Timeout for the requests in seconds.
+        Sends the request and returns the response, or raises for 4xx/5xx.
         """
         if timeout is None:
             timeout = self.timeout
@@ -358,9 +465,47 @@ class HttpClient:
 
         self.throttle_request(self.throttle_delay)
 
-        response = self.session.send(prepped_request, timeout=timeout)
+        response = self.__send(prepped_request, timeout)
 
-        response.raise_for_status()
+        # The token may have expired: fetch a new one and send the request once more.
+        if (
+            response.status_code == 401
+            and not skip_auth
+            and self.auth_method == AuthMethod.OAUTH
+        ):
+            self.token = None
+            self.__auth_with_oauth(prepped_request)
+            response = self.__send(prepped_request, timeout)
+
+        if response.status_code >= 400:
+            raise (error_class or AlfredApiError).from_response(response)
+        return response
+
+    def request(
+        self,
+        method: HttpMethod,
+        uri: Text,
+        params: Optional[Dict[str, object]] = None,
+        data: Optional[Dict[str, object]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        skip_auth: Optional[bool] = False,
+    ):
+        """
+        Makes a request to the Alfred API using the configured HTTP client.
+
+        Args:
+        - method: HTTP method.
+        - uri: Fully qualified URI.
+        - params: Query string parameters.
+        - data: Body data.
+        - headers: HTTP headers.
+        - timeout: Timeout for the requests in seconds.
+        """
+        response = self.__perform(
+            method, uri, params, data, headers, files, timeout, skip_auth
+        )
         return self.__parse_response(response), response
 
     def get(
@@ -461,27 +606,36 @@ class HttpClient:
         # We should throttle if the remaining rate limit is less than the threshold in percentage.
         # For example, if the rate limit is 100 and the remaining is 20, we should throttle.
         # If the rate limit is 100 and the remaining is 80, we should not throttle.
-        if self.rate_limit and self.throttle_threshold > 0:
-            remaining = self.rate_limit.get("remaining", 0)
-            limit = self.rate_limit.get("limit", 0)
+        # Missing headers mean the limit is unknown, and then we never throttle.
+        if not self.rate_limit or self.throttle_threshold <= 0:
+            return False
 
-            if remaining <= 0:
-                self.throttle_delay = min(self.throttle_delay * self.throttle_delay_backoff, self.throttle_delay_max)
-                return True
-            else:
-                # Reset the throttle delay in case the rate limit has been reset.
-                self.throttle_delay = self.__initial_throttle_delay
+        remaining = self.rate_limit.get("remaining")
+        limit = self.rate_limit.get("limit")
 
-                # Check if the remaining rate limit is less than the threshold.
-                return (remaining / limit) * 100 <= self.throttle_threshold
-        return False
+        if remaining is None or (limit is not None and limit <= 0):
+            self.throttle_delay = self.__initial_throttle_delay
+            return False
+
+        if remaining <= 0:
+            self.throttle_delay = min(
+                self.throttle_delay * self.throttle_delay_backoff,
+                self.throttle_delay_max,
+            )
+            return True
+
+        # Reset the throttle delay in case the rate limit has been reset.
+        self.throttle_delay = self.__initial_throttle_delay
+
+        # Check if the remaining rate limit is less than the threshold.
+        return limit is not None and (remaining / limit) * 100 <= self.throttle_threshold
 
     def throttle_request(self, delay: float = 1.0):
         """
         Throttle the request by delaying for a given time.
         """
         if self.should_throttle():
-            logging.warning("Rate limit is close to being reached. Throttling request.")
+            self.logger.warning("Rate limit is close to being reached. Throttling request.")
             sleep(delay)
 
     def __logger_interceptor(self, response: Response, *args, **kwargs):
@@ -490,11 +644,16 @@ class HttpClient:
         """
 
         # Log detailed HTTP request information.
-        body = (
-            response.request.body
-            if not isinstance(response.request.body, bytes)
-            else ""
+        # The token request carries the username and password: never log its body.
+        is_token_request = (
+            urlsplit(response.request.url).path.rstrip("/").lower().endswith("/token")
         )
+        if is_token_request:
+            body = "[redacted]"
+        elif isinstance(response.request.body, bytes):
+            body = ""
+        else:
+            body = response.request.body
         self.logger.debug(
             {
                 "message": "HTTP request details.",
@@ -503,7 +662,7 @@ class HttpClient:
                 "headers": {
                     k: v
                     for k, v in response.request.headers.items()
-                    if k.lower() not in ["authorization", "cookie", "x-tagshelfapi-key"]
+                    if k.lower() not in SENSITIVE_HEADERS
                 },
                 "body": body,
             }

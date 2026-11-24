@@ -41,6 +41,7 @@ class HttpConfiguration(TypedDict):
     pool_connections: Optional[bool]
     timeout: Optional[float]
     max_retries: Optional[int]
+    retry_backoff_factor: Optional[float]
     response_type: Optional[ResponseType]
     throttle_delay: Optional[float]
     throttle_threshold: Optional[int]
