@@ -97,20 +97,31 @@ Returns a dictionary:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `file` | `io.BytesIO` | The whole file, already in memory. Read it with `.getvalue()` or `.read()`. |
-| `original_name` | string | The file name from the `Content-Disposition` response header. |
+| `original_name` | string or `None` | The file name from the `Content-Disposition` response header, exactly as the server sent it. |
 | `mime_type` | string | The `Content-Type` response header. |
 
 ```python
+import re
+from pathlib import Path
+
 result = client.files.download("559167cb-4c76-4e28-bf15-34cbf614119c")
 
-with open(result["original_name"], "wb") as target:
-    target.write(result["file"].getvalue())
+# The server chooses the name. Keep only what follows the last path separator
+# or drive colon, so that it cannot point outside the directory you write to,
+# and use a name of your own if nothing usable is left.
+name = re.split(r"[\\/:]", result["original_name"] or "")[-1]
+if name in ("", ".", ".."):
+    name = "download.bin"
+
+target_dir = Path("downloads")
+target_dir.mkdir(exist_ok=True)
+(target_dir / name).write_bytes(result["file"].getvalue())
 ```
 
 Notes:
 
 - The file is read fully into memory; there is no streaming. Keep that in mind for large files.
-- `original_name` comes from the server and is used as the name you would write to. If you save to disk, sanitise it (it could contain path separators) rather than trusting it blindly.
+- `original_name` comes from the server, so do not pass it to `open` as it is: it could be an absolute path or contain `../`. The example keeps only the last component and writes inside a directory it chose. Two downloads can share a name; add the file ID to the name if you need them to be unique.
 - If the response carries no file name (no `Content-Disposition` header, or one without a name), `original_name` is `None`. Alfred sets the header for downloads, so this appears only behind a proxy that strips it. When the header carries both a plain and an encoded name, the encoded one is used.
 - A downloaded file whose `Content-Type` is `application/json` or `application/xml` is also run through the SDK's response parser (see [Response types](configuration.md#response-types)), and a file that does not parse as its declared type raises `AlfredResponseParseError` (a `ValueError`).
 
@@ -194,7 +205,7 @@ print(result["job_id"])
 - A protected file sent without a password, or with the wrong one, ends with the status "Password required".
 - Inbound email and Drive or bucket sources cannot carry a password: their protected files also end as "Password required".
 - For local files uploaded with `upload_file`, the password is sent when the session becomes a job instead (see [`upload_file`](#upload_file)).
-- The SDK forwards the dictionary as is. In its request log, JSON bodies are not printed (see [Logging](configuration.md#logging)). Anything beyond that about how the SDK handles the password is not documented here.
+- The SDK forwards the dictionary as is and does not keep the password. Its request log does not print JSON bodies (see [Logging](configuration.md#logging)), and error messages do not quote the request. An error raised for the call does carry the request it was sent with, password included, in its `request` attribute (see [errors.md](errors.md#what-an-api-error-carries)), so do not log that object whole.
 
 Errors worth handling (see [errors.md](errors.md)): `400` when no source, more than one kind of source, an unsupported file type for your company, or a metadata count that does not match the file count; `401` for bad credentials.
 
