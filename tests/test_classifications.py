@@ -398,6 +398,51 @@ class TestPayloadTypes(unittest.TestCase):
         self.assertEqual(optional, {"filename", "correlation_id"})
 
 
+class TestResponseTypes(TestPayloadTypes):
+    """The answer types say which keys the API always sends."""
+
+    test_criterion_requires_name_and_description = None
+    test_text_payload_requires_tags_and_text = None
+    test_file_payload_requires_file_and_tags = None
+
+    def test_answer_always_has_its_identity_and_status(self):
+        from alfred.rest.classifications import ClassificationResponse
+
+        required, optional = self.required_and_optional(ClassificationResponse)
+        self.assertEqual(
+            required,
+            {"id", "file_id", "status", "created_at", "correlation_id", "text_truncated"},
+        )
+        self.assertEqual(optional, {"completed_at", "result", "error", "input"})
+
+    def test_result_always_has_the_decision(self):
+        from alfred.rest.classifications import ClassificationResult
+
+        required, optional = self.required_and_optional(ClassificationResult)
+        self.assertEqual(
+            required, {"class", "score", "below_threshold", "predictions", "model"}
+        )
+        self.assertEqual(optional, {"reasoning", "reason", "answered"})
+
+    def test_prediction_and_failure_have_no_optional_keys(self):
+        from alfred.rest.classifications import ClassificationFailure, ClassificationPrediction
+
+        for typed_dict, keys in (
+            (ClassificationPrediction, {"class", "score"}),
+            (ClassificationFailure, {"code", "message"}),
+        ):
+            with self.subTest(typed_dict=typed_dict.__name__):
+                required, optional = self.required_and_optional(typed_dict)
+                self.assertEqual(required, keys)
+                self.assertEqual(optional, set())
+
+    def test_input_block_keys_are_all_optional(self):
+        from alfred.rest.classifications import ClassificationInput
+
+        required, _ = self.required_and_optional(ClassificationInput)
+        self.assertEqual(required, set())
+
+
 class TestFactoryAndClient(unittest.TestCase):
     def test_factory_version_1(self):
         http = RecordingHttpClient()
