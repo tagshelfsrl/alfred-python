@@ -34,53 +34,153 @@ Importing `alfred.rest` loads the `libmagic` system library (through `python-mag
 | --- | --- | --- | --- |
 | `file_id` | `str` | required | The file's ID (a UUID), as returned by `upload_file` or found through its job. |
 
-Returns the file as a dictionary. Fields with no value are left out, so use `.get()` for anything optional. The fields most integrations use:
+Returns the file as a dictionary. The SDK returns what Alfred sent, unchanged; the type is `FileDetailsResponse` in `alfred.rest.files`, and the tables below list every field of Alfred 1.130.0.
+
+Text fields without a value are sent as an empty string. Identifiers, dates and `metadata` are left out when they have no value, so read those with `.get()`; the tables mark them "optional". The four fields marked "New in Alfred 1.130.0" are absent when the environment you call runs an earlier version, so read those with `.get()` too.
+
+The fields most integrations use:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `id` | string | The file's ID. |
 | `file_name`, `file_name_without_extension` | string | The name the file was stored under. |
 | `content_type` | string | The file's MIME type, for example `application/pdf`. |
-| `file_size` (also `size`) | integer | Size in bytes. |
+| `file_size`, `size` | integer | Size in bytes (the same number under two names). |
 | `status` | string | Where the file is in processing, for example `finished`. The values are listed in the public [File Status](https://docs.tagshelf.dev/endpoints/file/file-status) page. |
-| `tag_id`, `tag_name` | string | The tag (document type) assigned to the file. `tag_id` is present only once the file has a tag. |
+| `is_result_ready` | boolean | Whether the file has a result you can read. See [When a file's results are ready](#when-a-files-results-are-ready). New in Alfred 1.130.0. |
+| `tag_id`, `tag_name` | string | The tag (document type) assigned to the file. `tag_id` is optional: it is present once the file has a tag. |
 | `classification_score` | number | Confidence in the tag, from 0 to 1. |
 | `channel` | string | How the file reached Alfred, for example `api`. |
-| `metadata` | object | The metadata you attached when you uploaded the file. |
+| `metadata` | object | Optional. The metadata you attached when you uploaded the file. |
 | `page_count`, `page_number` | integer | Number of pages; for a page split out of a larger document, its page number in the original. |
-| `parent_id`, `is_parent` | string, boolean | Set when Alfred split a document into several files. `parent_id` points at the original. |
-| `deferred_session_id` | string | The session the file was uploaded into, if any. |
-| `is_duplicate`, `duplicate_origin_id` | boolean, string | Whether the file is an exact copy of one Alfred already processed, and which one. |
+| `is_parent`, `parent_id` | boolean, string | `is_parent` is `true` for a document Alfred split into several files. `parent_id` (optional) is on each of those files and points at the original. |
+| `deferred_session_id` | string | Optional. The session the file was uploaded into. |
+| `is_duplicate`, `duplicate_origin_id` | boolean, string | Whether the file is an exact copy of one Alfred already processed, and (optional) which one. |
 | `creation_date`, `update_date` | string | ISO 8601 timestamps in UTC. |
 
-The response has more fields (review and assignment state, duplicate flags, the stored blob name and so on). The `FileDetailsResponse` type in `alfred.rest.files` lists a subset; the SDK returns whatever the server sent. The full list is in the public [Get a file](https://docs.tagshelf.dev/endpoints/file) reference.
+How the file relates to other files:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `input_type` | string | `single_unit`: processed as it is. `primary`: an original that Alfred split into parts. `derived`: one of those parts. `virtual`: a document Alfred composed from several pages. |
+| `group_role` | string | The file's part in a group of pages: `standalone` (not part of one, the usual case), `virtual` (the composed document, which has no stored file of its own and holds the classification and extraction for its pages) or `member` (a page whose extraction belongs to the `virtual` file of its group). New in Alfred 1.130.0. |
+| `group_id` | string | Optional. Present when page grouping ran for the file. It does not by itself say the file belongs to a document of several pages: read `group_role` for that. New in Alfred 1.130.0. |
+| `is_processing_unit` | boolean | Whether the file is classified and extracted in its own right. It is `false` for a parent that was split and for a `member` page. New in Alfred 1.130.0. |
+| `job_order_index` | integer | The file's position in its job's processing order. |
+
+Classification and review:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `should_be_classified` | boolean | Whether Alfred is to classify the file. |
+| `classifier` | string | The mechanism that classified the file. |
+| `proposed_tag_id` | string | Optional. The tag the classifier proposed. |
+| `proposed_tag_variance`, `classification_score_above_deviation` | number, boolean | Figures recorded when the file was classified: the variance of the proposed tag, and whether its score was above the standard deviation. |
+| `manual_classification` | boolean | Whether the tag was set by hand. |
+| `confirmed_tag_id`, `confirmed_by` | string | The tag confirmed for the file (optional) and who confirmed it. |
+| `assigned_to`, `assignment_date` | string | The user the file is assigned to, and when (the date is optional). |
+| `validation_date` | string | Optional. When the file was validated. |
+| `exclude_from_classification_data` | boolean | Whether the file is kept out of the data sets used for classification. |
+
+Extraction and duplicates by content:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `extraction_type` | string | How the file's data points were extracted: `none` (not extracted, or its tag has no data points), `text`, `multimodal` (text and images) or `reused` (copied from another file without running extraction). |
+| `is_data_duplicate` | boolean | Whether the file counts as a duplicate because its data points match another file's. |
+| `is_duplicate_by_values` | boolean | Whether a validation rule found that some of its values repeat those of other files. |
+| `effective_metadata` | string | The file's metadata merged with its job's. Unlike `metadata`, it is JSON text, so parse it with `json.loads`. |
+
+Storage and ownership:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `blob_name`, `blob_url` | string | Where Alfred stores the file. |
+| `md5_hash` | string | The MD5 of the content, base64-encoded. |
+| `user_name` | string | The user or application that uploaded the file. |
+| `company_id` | string | The account the file belongs to. |
+| `description` | string | A short description of the file. |
 
 ```python
 file = client.files.get("559167cb-4c76-4e28-bf15-34cbf614119c")
 
-print(file["status"], file.get("tag_name"), file.get("classification_score"))
+print(file["status"], file["tag_name"], file["classification_score"])
 ```
 
-Example response (shortened):
+Example response:
 
 ```json
 {
   "id": "559167cb-4c76-4e28-bf15-34cbf614119c",
-  "creation_date": "2026-10-14T13:05:11.300Z",
-  "update_date": "2026-10-14T13:07:40.910Z",
+  "creation_date": "2026-11-24T13:05:11.300Z",
+  "update_date": "2026-11-24T13:07:40.910Z",
   "file_name": "invoice-1042.pdf",
-  "content_type": "application/pdf",
+  "file_name_without_extension": "invoice-1042",
+  "size": 182344,
   "file_size": 182344,
+  "blob_name": "559167cb-4c76-4e28-bf15-34cbf614119c.pdf",
+  "blob_url": "https://storage.example.com/files/559167cb-4c76-4e28-bf15-34cbf614119c.pdf",
+  "user_name": "erp-integration",
+  "md5_hash": "1B2M2Y8AsgTpgAmY7PhCfg==",
+  "content_type": "application/pdf",
   "channel": "api",
+  "description": "",
   "status": "finished",
+  "input_type": "single_unit",
+  "extraction_type": "text",
+  "should_be_classified": true,
+  "exclude_from_classification_data": false,
+  "classifier": "",
+  "classification_score": 0.97,
   "tag_id": "a3c7e2b1-58d4-4f0e-9c2a-6b1d7e8f9a03",
   "tag_name": "Invoice",
-  "classification_score": 0.97,
+  "proposed_tag_id": "a3c7e2b1-58d4-4f0e-9c2a-6b1d7e8f9a03",
+  "proposed_tag_variance": 0.0,
+  "classification_score_above_deviation": true,
+  "confirmed_by": "",
+  "manual_classification": false,
+  "is_duplicate": false,
+  "is_data_duplicate": false,
+  "is_duplicate_by_values": false,
+  "is_parent": false,
+  "group_role": "standalone",
+  "is_processing_unit": true,
+  "is_result_ready": true,
+  "page_count": 1,
+  "page_number": 0,
+  "job_order_index": 0,
   "deferred_session_id": "0f767925-b464-4ffa-b621-1a0aeacac256",
+  "company_id": "286e2ed0-3626-4faa-a745-8ebf3488fbd7",
   "metadata": { "customer": "ACME" },
-  "page_count": 1
+  "effective_metadata": "{\"customer\": \"ACME\"}",
+  "assigned_to": ""
 }
 ```
+
+#### When a file's results are ready
+
+`is_result_ready` is `true` when Alfred has a result for the file that you can read with [`data_points.get_values`](data-points.md): the file is a processing unit (`is_processing_unit`) and its `status` is `finished`, `confirmation_required` or `pending_job_validation`. In the last two a person's review or a check across the job is still pending, so the values can change.
+
+```python
+file = client.files.get("559167cb-4c76-4e28-bf15-34cbf614119c")
+
+READABLE = ("finished", "confirmation_required", "pending_job_validation")
+
+ready = file.get("is_result_ready")
+if ready is None:  # an Alfred older than 1.130.0 does not send the field
+    ready = file["status"] in READABLE
+
+if ready:
+    values = client.data_points.get_values(file["id"])
+elif file.get("is_processing_unit") is False:
+    print("this file has no result of its own:", file["input_type"], file.get("group_role"))
+else:
+    print("not ready yet:", file["status"])
+```
+
+A file that is not a processing unit never becomes ready. That is a parent Alfred split into parts (read the parts instead) or a `member` page of a group (its extraction belongs to the group's `virtual` file). The files of a job carry the same four fields, so you can pick the ready ones from [`jobs.get`](jobs.md) with the full view without asking for each file.
+
+`is_result_ready`, `is_processing_unit`, `group_role` and `group_id` are sent by Alfred 1.130.0 and later. On an earlier version they are absent, and `status` is what there is to go by: the example treats the same three statuses as readable.
 
 Errors worth handling (see [errors.md](errors.md)): a `404` when the file does not exist or belongs to another account (the response has no body), and a `409` when the file exists but is not in a state that can be read yet. A `409` is worth retrying after a few seconds.
 
