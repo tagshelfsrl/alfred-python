@@ -37,7 +37,7 @@ Returns a list of dictionaries, one per data point of the file's tag (the type i
 | `value` | string | The value, after any formatting configured for the data point. An empty string when nothing was extracted. |
 | `classification_score` | number | How sure Alfred is of this value, from 0 to 1. See [Confidence](#confidence). |
 | `extracted_value` | string | Optional. The extractor's original output, present only when formatting changed it. See [Formatting and normalisation](#formatting-and-normalisation). |
-| `normalized_value` | string | Optional. The value after type normalisation. In practice it is there on every row, as an empty string when the value is empty. |
+| `normalized_value` | string | Optional. The value after type normalisation. Alfred may leave it out, so read it with `.get()`; when it is sent for a data point without a value, it is an empty string. |
 | `validation` | object or list | Optional. What the data point's validators found for this value. Present only when validation ran. See [Validation results](#validation-results). |
 
 The first seven fields are always there. The three optional ones are left out when there is nothing to report, so read them with `.get()`.
@@ -51,7 +51,7 @@ by_key = {item["field_key"]: item["value"] for item in values}
 print(by_key.get("total"))
 ```
 
-Example response, with one value that has nothing more to report and one that was formatted and validated:
+Example response, with one value as production usually sends it and one that was also formatted and validated:
 
 ```json
 [
@@ -62,7 +62,8 @@ Example response, with one value that has nothing more to report and one that wa
     "metadata_name": "Total",
     "field_key": "total",
     "value": "123.45",
-    "classification_score": 0.93
+    "classification_score": 0.93,
+    "normalized_value": "123.45"
   },
   {
     "id": "6c1e2d63-4b5f-4b72-8e1f-1d8f1b0e22bb",
@@ -137,7 +138,7 @@ A data point can have formatters, rules that rewrite what the extractor read: ch
 
 - `value` is the result after the formatters ran. This is the field to use.
 - `extracted_value` is what the extractor read, and it is present only when a formatter changed it. When it is absent, `value` is what the extractor read.
-- `normalized_value` is the value in the standard form of the data point's type. It is an empty string when there is no value.
+- `normalized_value` is the value in the standard form of the data point's type. It is optional like the other two: production sent it on every row of a test file (as an empty string where there was no value), but the API leaves it out when it has none, so do not index it directly.
 
 #### Validation results
 
