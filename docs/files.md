@@ -36,7 +36,7 @@ Importing `alfred.rest` loads the `libmagic` system library (through `python-mag
 
 Returns the file as a dictionary. The SDK returns what Alfred sent, unchanged; the type is `FileDetailsResponse` in `alfred.rest.files`, and the tables below list every field of Alfred 1.130.0.
 
-Text fields without a value are sent as an empty string. Identifiers, dates and `metadata` are left out when they have no value, so read those with `.get()`; the tables mark them "optional".
+Text fields without a value are sent as an empty string. Identifiers, dates and `metadata` are left out when they have no value, so read those with `.get()`; the tables mark them "optional". The four fields marked "New in Alfred 1.130.0" are absent when the environment you call runs an earlier version, so read those with `.get()` too.
 
 The fields most integrations use:
 
@@ -164,17 +164,21 @@ Example response:
 ```python
 file = client.files.get("559167cb-4c76-4e28-bf15-34cbf614119c")
 
-if file["is_result_ready"]:
+ready = file.get("is_result_ready")
+if ready is None:  # an Alfred older than 1.130.0 does not send the field
+    ready = file["status"] == "finished"
+
+if ready:
     values = client.data_points.get_values(file["id"])
-elif not file["is_processing_unit"]:
-    print("this file has no result of its own:", file["input_type"], file["group_role"])
+elif file.get("is_processing_unit") is False:
+    print("this file has no result of its own:", file["input_type"], file.get("group_role"))
 else:
     print("not ready yet:", file["status"])
 ```
 
 A file that is not a processing unit never becomes ready. That is a parent Alfred split into parts (read the parts instead) or a `member` page of a group (its extraction belongs to the group's `virtual` file). The files of a job carry the same four fields, so you can pick the ready ones from [`jobs.get`](jobs.md) with the full view without asking for each file.
 
-`is_result_ready`, `is_processing_unit`, `group_role` and `group_id` are sent by Alfred 1.130.0 and later.
+`is_result_ready`, `is_processing_unit`, `group_role` and `group_id` are sent by Alfred 1.130.0 and later. On an earlier version they are absent, and `status` is what there is to go by, as the example does.
 
 Errors worth handling (see [errors.md](errors.md)): a `404` when the file does not exist or belongs to another account (the response has no body), and a `409` when the file exists but is not in a state that can be read yet. A `409` is worth retrying after a few seconds.
 

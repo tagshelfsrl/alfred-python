@@ -95,15 +95,6 @@ class _FileDetailsRequired(TypedDict):
     is_duplicate_by_values: bool
     # Structure: split documents and grouped pages.
     is_parent: bool
-    # standalone, virtual or member. Sent by Alfred 1.130.0 and later.
-    group_role: str
-    # Whether the file is classified and extracted in its own right: not a
-    # parent that was split, and not a member page of a group. Sent by Alfred
-    # 1.130.0 and later.
-    is_processing_unit: bool
-    # Whether an automated result exists for the file and can be read (a
-    # review may still be pending). Sent by Alfred 1.130.0 and later.
-    is_result_ready: bool
     page_count: int
     page_number: int
     job_order_index: int
@@ -118,17 +109,30 @@ class FileDetailsResponse(_FileDetailsRequired, total=False):
     Answer of `Files.get`: every field Alfred 1.130.0 sends for a file.
 
     The keys of `_FileDetailsRequired` are always present (text without a
-    value is sent as an empty string). The keys below are left out when they
-    have no value.
+    value is sent as an empty string). The keys below are optional: either
+    Alfred leaves them out when they have no value, or they were added in
+    Alfred 1.130.0 and an earlier version does not send them.
     """
 
+    # Added in Alfred 1.130.0. Always present from that version on.
+    # standalone, virtual or member.
+    group_role: str
+    # Whether the file is classified and extracted in its own right: not a
+    # parent that was split, and not a member page of a group.
+    is_processing_unit: bool
+    # Whether an automated result exists for the file and can be read (a
+    # review may still be pending).
+    is_result_ready: bool
+
+    # Added in Alfred 1.130.0, and left out when page grouping did not run.
+    group_id: str
+
+    # Left out when they have no value.
     tag_id: str
     proposed_tag_id: str
     confirmed_tag_id: str
     duplicate_origin_id: str
     parent_id: str
-    # Set when page grouping ran for the file. Sent by Alfred 1.130.0 and later.
-    group_id: str
     deferred_session_id: str
     assignment_date: str
     validation_date: str

@@ -38,7 +38,8 @@ class FakeResponse:
 
 
 # The fields of GET /api/file/detail/{id} in Alfred 1.130.0. Text without a
-# value is sent as an empty string, so these keys are always present.
+# value is sent as an empty string, so these keys are always present, whatever
+# the version of Alfred.
 FILE_DETAILS_ALWAYS_SENT = {
     "id",
     "creation_date",
@@ -70,9 +71,6 @@ FILE_DETAILS_ALWAYS_SENT = {
     "is_data_duplicate",
     "is_duplicate_by_values",
     "is_parent",
-    "group_role",
-    "is_processing_unit",
-    "is_result_ready",
     "page_count",
     "page_number",
     "job_order_index",
@@ -81,7 +79,11 @@ FILE_DETAILS_ALWAYS_SENT = {
     "assigned_to",
 }
 
-# Identifiers, dates and the metadata are left out when they have no value.
+# Added in Alfred 1.130.0: always present from that version on, absent before.
+FILE_DETAILS_ADDED_IN_1_130 = {"group_role", "is_processing_unit", "is_result_ready"}
+
+# Identifiers, dates and the metadata are left out when they have no value
+# (group_id is also one of the 1.130.0 additions).
 FILE_DETAILS_SENT_WHEN_SET = {
     "tag_id",
     "proposed_tag_id",
@@ -181,6 +183,16 @@ class TestFilesGetAndUpload(unittest.TestCase):
         result = Files(client).get(FILE_DETAILS["id"])
 
         self.assertEqual(set(result), FILE_DETAILS_ALWAYS_SENT)
+
+    def test_get_returns_the_answer_of_an_alfred_older_than_1_130_as_it_is(self):
+        added = FILE_DETAILS_ADDED_IN_1_130 | {"group_id"}
+        sent = {key: value for key, value in FILE_DETAILS.items() if key not in added}
+        client = RecordingHttpClient(get_result=(dict(sent), None))
+
+        result = Files(client).get(FILE_DETAILS["id"])
+
+        self.assertEqual(result, sent)
+        self.assertIsNone(result.get("is_result_ready"))
 
     def test_upload_posts_payload_as_data_to_upload_route(self):
         payload = {"url": "https://example.com/a.pdf", "container": "c1"}
@@ -525,20 +537,28 @@ class TestFilesUploadFile(unittest.TestCase):
 class TestFileDetailsType(unittest.TestCase):
     def test_type_has_exactly_the_fields_alfred_sends(self):
         self.assertEqual(set(FileDetailsResponse.__required_keys__), FILE_DETAILS_ALWAYS_SENT)
-        self.assertEqual(set(FileDetailsResponse.__optional_keys__), FILE_DETAILS_SENT_WHEN_SET)
+        self.assertEqual(
+            set(FileDetailsResponse.__optional_keys__),
+            FILE_DETAILS_SENT_WHEN_SET | FILE_DETAILS_ADDED_IN_1_130,
+        )
 
     def test_type_has_forty_nine_fields(self):
-        self.assertEqual(len(FILE_DETAILS_ALWAYS_SENT | FILE_DETAILS_SENT_WHEN_SET), 49)
-        self.assertEqual(FILE_DETAILS_ALWAYS_SENT & FILE_DETAILS_SENT_WHEN_SET, set())
+        groups = (FILE_DETAILS_ALWAYS_SENT, FILE_DETAILS_SENT_WHEN_SET, FILE_DETAILS_ADDED_IN_1_130)
+
+        self.assertEqual(sum(len(group) for group in groups), 49)
+        self.assertEqual(len(set().union(*groups)), 49)
 
     def test_sample_carries_every_field(self):
-        self.assertEqual(set(FILE_DETAILS), FILE_DETAILS_ALWAYS_SENT | FILE_DETAILS_SENT_WHEN_SET)
+        self.assertEqual(
+            set(FILE_DETAILS),
+            FILE_DETAILS_ALWAYS_SENT | FILE_DETAILS_SENT_WHEN_SET | FILE_DETAILS_ADDED_IN_1_130,
+        )
 
-    def test_type_includes_the_fields_added_in_alfred_1_130(self):
-        keys = set(FileDetailsResponse.__required_keys__) | set(FileDetailsResponse.__optional_keys__)
+    def test_fields_added_in_alfred_1_130_are_typed_but_not_required(self):
+        added = FILE_DETAILS_ADDED_IN_1_130 | {"group_id"}
 
-        for key in ("group_role", "group_id", "is_processing_unit", "is_result_ready"):
-            self.assertIn(key, keys)
+        self.assertTrue(added <= set(FileDetailsResponse.__optional_keys__))
+        self.assertEqual(added & set(FileDetailsResponse.__required_keys__), set())
 
 
 class TestFilesFactory(unittest.TestCase):

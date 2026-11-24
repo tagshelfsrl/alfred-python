@@ -256,7 +256,7 @@ values: Optional[List[DataPointValue]] = client.data_points.get_values(
 
 #### When to call it, and what can go wrong
 
-Call it after the file has finished processing. Values read earlier can be missing or incomplete. Check the file's `status` with [`files.get`](files.md#get), or wait for the job (see [jobs.md](jobs.md) or [real-time events](realtime.md)). A file that Alfred holds for human review (status `confirmation_required`) has values that a reviewer may still change.
+Call it after the file has finished processing. Values read earlier can be missing or incomplete. Check the file's `is_result_ready` with [`files.get`](files.md#when-a-files-results-are-ready), or wait for the job (see [jobs.md](jobs.md) or [real-time events](realtime.md)). A file that Alfred holds for human review (status `confirmation_required`) has values that a reviewer may still change.
 
 Situations to handle (see [errors.md](errors.md)):
 
