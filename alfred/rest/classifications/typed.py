@@ -14,39 +14,48 @@ class ClassificationStatus(str, Enum):
     FAILED = "failed"
 
 
-class ClassificationCriterion(TypedDict, total=False):
-    """
-    One document type the caller wants the document classified against.
-    `name` and `description` are required by the API; `threshold` is optional
-    (a number from 0 to 1; 0, the default, always picks).
-    """
-
+class _CriterionRequired(TypedDict):
     name: str
     description: str
+
+
+class ClassificationCriterion(_CriterionRequired, total=False):
+    """
+    One document type the caller wants the document classified against.
+    `name` and `description` are required; `threshold` is optional (a number
+    from 0 to 1; 0, the default, always picks).
+    """
+
     threshold: float
 
 
-class CreateClassificationPayload(TypedDict, total=False):
-    """
-    Text input of `Classifications.create`. `tags` and `text` are required by
-    the API; `file_name` and `correlation_id` are optional.
-    """
-
+class _CreateClassificationRequired(TypedDict):
     tags: List[ClassificationCriterion]
     text: str
+
+
+class CreateClassificationPayload(_CreateClassificationRequired, total=False):
+    """
+    Text input of `Classifications.create`. `tags` and `text` are required;
+    `file_name` and `correlation_id` are optional.
+    """
+
     file_name: str
     correlation_id: str
 
 
-class CreateClassificationFilePayload(TypedDict, total=False):
+class _CreateClassificationFileRequired(TypedDict):
+    file: Union[BufferedReader, BytesIO]
+    tags: List[ClassificationCriterion]
+
+
+class CreateClassificationFilePayload(_CreateClassificationFileRequired, total=False):
     """
     File input of `Classifications.create_from_file`. `file` and `tags` are
-    required. `filename` is required when the file object carries no name of
+    required. `filename` is needed when the file object carries no name of
     its own. `correlation_id` is optional.
     """
 
-    file: Union[BufferedReader, BytesIO]
-    tags: List[ClassificationCriterion]
     filename: str
     correlation_id: str
 

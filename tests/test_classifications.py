@@ -366,6 +366,38 @@ class TestStatus(unittest.TestCase):
         self.assertEqual(ClassificationStatus("completed"), "completed")
 
 
+class TestPayloadTypes(unittest.TestCase):
+    """The payload types say which keys the API requires, so a type checker
+    catches a missing one before the API answers 400."""
+
+    def required_and_optional(self, typed_dict):
+        required = getattr(typed_dict, "__required_keys__", None)
+        if required is None:
+            self.skipTest("TypedDict key totality is introspectable from Python 3.9")
+        return set(required), set(typed_dict.__optional_keys__)
+
+    def test_criterion_requires_name_and_description(self):
+        from alfred.rest.classifications import ClassificationCriterion
+
+        required, optional = self.required_and_optional(ClassificationCriterion)
+        self.assertEqual(required, {"name", "description"})
+        self.assertEqual(optional, {"threshold"})
+
+    def test_text_payload_requires_tags_and_text(self):
+        from alfred.rest.classifications import CreateClassificationPayload
+
+        required, optional = self.required_and_optional(CreateClassificationPayload)
+        self.assertEqual(required, {"tags", "text"})
+        self.assertEqual(optional, {"file_name", "correlation_id"})
+
+    def test_file_payload_requires_file_and_tags(self):
+        from alfred.rest.classifications import CreateClassificationFilePayload
+
+        required, optional = self.required_and_optional(CreateClassificationFilePayload)
+        self.assertEqual(required, {"file", "tags"})
+        self.assertEqual(optional, {"filename", "correlation_id"})
+
+
 class TestFactoryAndClient(unittest.TestCase):
     def test_factory_version_1(self):
         http = RecordingHttpClient()
