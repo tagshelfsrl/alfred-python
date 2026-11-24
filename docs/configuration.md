@@ -76,13 +76,14 @@ print(client.http_client.timeout, client.http_client.max_retries)
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `timeout` | number (seconds) | `5` | Timeout for each HTTP request. Must be greater than zero. |
-| `max_retries` | integer | `3` | Maximum retries per request. |
+| `max_retries` | integer | `3` | Maximum retries per request. `0` turns retries off. |
+| `retry_backoff_factor` | number (seconds) | `1` | Base of the wait between retries. `0` retries without waiting. |
 | `pool_connections` | boolean | `True` | `True` uses a connection pool (10 pools of up to `min(32, cpu_count + 4)` connections each). `False` uses a single connection. |
 | `response_type` | `ResponseType` | `ResponseType.JSON` | The format the client asks for. See [Response types](#response-types). |
 | `throttle_delay` | number (seconds) | `1` | How long to sleep before a request when the client decides to throttle. |
 | `throttle_threshold` | integer (percent) | `20` | Throttle when the remaining rate limit is at or below this percentage of the limit. `0` turns throttling off. |
 
-Keys you leave out take these defaults. An invalid `timeout`, `max_retries` or `response_type` raises `ValueError` when the client is built.
+Keys you leave out take these defaults. An invalid `timeout`, `max_retries`, `retry_backoff_factor` or `response_type` raises `ValueError` when the client is built.
 
 ### Timeout
 
@@ -90,7 +91,7 @@ The default timeout is 5 seconds. It is passed to `requests` as a single number,
 
 ### Retries
 
-Failed requests are retried with a back-off (`backoff_factor` 1, so the waits grow from about a second) when the server answers `429`, `500`, `502`, `503` or `504`. The retry rules come from `urllib3` and apply to its idempotent methods only: `GET`, `PUT`, `DELETE`, `HEAD`, `OPTIONS` and `TRACE`. `POST` requests (session creation, job creation, both upload methods) are not retried after the server has answered. That avoids duplicate sessions, files and jobs, but it means you must decide what to do when a `POST` fails. [errors.md](errors.md#automatic-retries-and-timeouts) has the complete retry rules and settings, and the error raised when retries run out.
+Failed requests are retried when the server answers `429`, `500`, `502`, `503` or `504`. The first retry is sent at once and later ones wait longer each time (`retry_backoff_factor` sets the pace: 2 and then 4 seconds with the default). The retry rules come from `urllib3` and apply to its idempotent methods only: `GET`, `PUT`, `DELETE`, `HEAD`, `OPTIONS` and `TRACE`. `POST` requests (session creation, job creation, both upload methods) are not retried after the server has answered. That avoids duplicate sessions, files and jobs, but it means you must decide what to do when a `POST` fails. [errors.md](errors.md#automatic-retries-and-timeouts) has the complete retry rules and settings, and the error raised when retries run out.
 
 ### Throttling
 
@@ -130,7 +131,7 @@ The setting only changes the `Accept` header. The SDK decides how to parse a res
 | `application/xml` | An `xml.etree.ElementTree.Element`. |
 | `text/plain`, or anything else | The response body as text. |
 
-The Alfred API answers in JSON, and every domain page in this documentation shows JSON results. Keep the default unless you have a reason to change it; whether the server honours other `Accept` values could not be verified. A response with a body that cannot be parsed as its declared type raises `ValueError`, and a response with no `Content-Type` header at all (for example `204 No Content`) raises `AttributeError`; see [data-points.md](data-points.md) for where that can happen.
+The Alfred API answers in JSON, and every domain page in this documentation shows JSON results. Keep the default unless you have a reason to change it; whether the server honours other `Accept` values could not be verified. A response with a body that cannot be parsed as its declared type raises `AlfredResponseParseError`, which is also a `ValueError`. A response with no body (for example `204 No Content`) returns `None`, and one with a body but no `Content-Type` header is returned as text; see [data-points.md](data-points.md) for where an empty answer can happen and [errors.md](errors.md#responses-that-cannot-be-parsed) for the details.
 
 ## Logging
 
@@ -159,7 +160,7 @@ Nov 24 05:57:25 my-app {"msg": {"message": "HTTP request details.", "method": "G
 
 What the SDK logs at `DEBUG`:
 
-- every request: method, URL, headers and body. The `Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers are left out. Bodies that `requests` holds as bytes (JSON bodies and file uploads) are logged as an empty string;
+- every request: method, URL, headers and body. The `Authorization`, `Proxy-Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers are left out. Bodies that `requests` holds as bytes (JSON bodies and file uploads) are logged as an empty string, and the body of the OAuth token request, which holds the username and password, is logged as `[redacted]`;
 - for responses that are not successful (status 400 and above): status code, body, size and content type.
 
 The URL, request and response bodies can contain your document data, so enable `DEBUG` with care.
@@ -213,7 +214,7 @@ To extend rather than replace, subclass `alfred.http.HttpClient` and pass an ins
 
 ## Errors worth handling
 
-- `ValueError` for an invalid `timeout`, `max_retries` or `response_type` when the client is built.
+- `ValueError` for an invalid `timeout`, `max_retries`, `retry_backoff_factor` or `response_type` when the client is built.
 - An unsupported `version` when a domain is first used.
 - Everything that goes wrong during a request (timeouts, refused connections, HTTP error statuses) is covered in [errors.md](errors.md).
 

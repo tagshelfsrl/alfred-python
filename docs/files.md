@@ -112,7 +112,7 @@ Notes:
 - The file is read fully into memory; there is no streaming. Keep that in mind for large files.
 - `original_name` comes from the server and is used as the name you would write to. If you save to disk, sanitise it (it could contain path separators) rather than trusting it blindly.
 - If the response carries no file name (no `Content-Disposition` header, or one without a name), `original_name` is `None`. Alfred sets the header for downloads, so this appears only behind a proxy that strips it. When the header carries both a plain and an encoded name, the encoded one is used.
-- A downloaded file whose `Content-Type` is `application/json` or `application/xml` is also run through the SDK's response parser (see [Response types](configuration.md#response-types)), and a file that does not parse as its declared type raises `ValueError`.
+- A downloaded file whose `Content-Type` is `application/json` or `application/xml` is also run through the SDK's response parser (see [Response types](configuration.md#response-types)), and a file that does not parse as its declared type raises `AlfredResponseParseError` (a `ValueError`).
 
 Errors worth handling: `404` when the file does not exist (see [errors.md](errors.md)).
 

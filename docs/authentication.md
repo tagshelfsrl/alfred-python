@@ -117,7 +117,7 @@ realtime_client = AlfredRealTimeClient(Configuration.v1(), auth_config)
 
 ## Credentials in logs
 
-With debug logging on, the SDK logs each request with its headers and leaves out the `Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers. It also logs request bodies that are text, so treat `DEBUG` logs as sensitive. [configuration.md](configuration.md#logging) describes what is logged, and [errors.md](errors.md#logging-and-redaction) what is redacted.
+With debug logging on, the SDK logs each request with its headers and leaves out the `Authorization`, `Proxy-Authorization`, `Cookie` and `X-TagshelfAPI-Key` headers. The body of the OAuth token request, which holds the username and password, is logged as `[redacted]`. Other request bodies that are text are logged, and so are full URLs with their query strings, so treat `DEBUG` logs as sensitive. [configuration.md](configuration.md#logging) describes what is logged, and [errors.md](errors.md#logging-and-redaction) what is redacted.
 
 The real-time client passes the API key in the query string of its connection URL. The SDK keeps the key out of its own error messages and log lines, but anything else that records that URL, such as a proxy, can show it. See [realtime.md](realtime.md#failure-modes).
 
