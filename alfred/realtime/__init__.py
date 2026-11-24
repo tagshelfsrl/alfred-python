@@ -1,5 +1,7 @@
 # Native Imports
+from enum import Enum
 from typing import Union
+from urllib.parse import quote
 
 # 3rd Party Imports
 import socketio
@@ -49,7 +51,12 @@ class AlfredRealTimeClient:
         try:
             self.socket.connect(f"{self.base_url}?apiKey={auth_config.get('api_key')}")
         except Exception as err:
-            raise alfred.exceptions.ConnectionError(f"Could not establish connection with server: {err}")
+            # The underlying error quotes the connection URL, API key included:
+            # redact it, and do not chain the original exception, whose own
+            # message would put the key back into tracebacks.
+            raise alfred.exceptions.ConnectionError(
+                f"Could not establish connection with server: {self.__redact(str(err))}"
+            ) from None
 
     def __on_connect(self):
         """
@@ -73,12 +80,26 @@ class AlfredRealTimeClient:
         Args:
           err (str): The error message.
         """
+        err = self.__redact(err)
         if self.verbose:
             self.logger.error("Connection error:  %s", err)
         self.disconnect()
         # trigger error callback:
         if self.error_callback:
             self.error_callback(err)
+
+    def __redact(self, value):
+        """
+        Removes the API key from text that quotes the connection URL, which
+        carries the key as a query parameter. Anything that is not text is
+        returned as it is.
+        """
+        api_key = self.auth_config.get("api_key")
+        if not isinstance(api_key, str) or not api_key or not isinstance(value, str):
+            return value
+        for secret in (api_key, quote(api_key, safe="")):
+            value = value.replace(secret, "[redacted]")
+        return value
 
     def __callback(self, event: Union[FileEvent, JobEvent, EventType], callback):
         """
@@ -88,12 +109,16 @@ class AlfredRealTimeClient:
             event (str): The event name.
             callback (function): The callback function to handle the event.
         """
+        # Handlers are looked up by the event's name: a member of the event
+        # enums is registered under its value, or it would never be called.
+        event_name = event.value if isinstance(event, Enum) else event
+
         def handle_event(data):
             if self.verbose:
-                self.logger.debug(f"Event {event} received: %s", data)
+                self.logger.debug(f"Event {event_name} received: %s", data)
             callback(data)
 
-        self.socket.on(event, handle_event)
+        self.socket.on(event_name, handle_event)
 
     def on_file_event(self, callback):
         """
@@ -118,7 +143,8 @@ class AlfredRealTimeClient:
         Listens to a specific event.
 
         Args:
-            event (str): The event name.
+            event (FileEvent | JobEvent | str): The event, as a member of the
+                event enums or as its name (for example "job_finished_event").
             callback (function): The callback function to handle the event.
         """
         self.__callback(event, callback)

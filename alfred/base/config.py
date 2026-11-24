@@ -8,8 +8,9 @@ class ConfigurationDict(TypedDict):
     version: int
 
 
-class OverridesDict(TypedDict):
+class OverridesDict(TypedDict, total=False):
     base_url: Optional[Text]
+    realtime_url: Optional[Text]
 
 
 class Configuration:

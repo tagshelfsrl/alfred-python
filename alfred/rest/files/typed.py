@@ -3,17 +3,29 @@ from io import BufferedReader, BytesIO
 from typing import Dict, List, TypedDict, Optional, Union
 
 
-class UploadRemoteFilePayload(TypedDict):
+class UploadRemoteFilePayload(TypedDict, total=False):
     url: Optional[str]
     urls: Optional[List[str]]
     source: Optional[str]
     container: Optional[str]
+    # Name of the remote file (with `url` or `source`) or names (with `urls`).
+    file_name: Optional[str]
+    file_names: Optional[List[str]]
+    # Deprecated spellings of file_name and file_names. The API does not read
+    # them; the SDK sends them under the names above.
     filename: Optional[str]
     filenames: Optional[List[str]]
     merge: Optional[bool]
     metadata: Optional[Dict]
     propagate_metadata: Optional[bool]
     parent_file_prefix: Optional[str]
+    channel: Optional[str]
+    # Opaque, case-sensitive caller identifier, at most 512 characters.
+    correlation_id: Optional[str]
+    # Password of the protected files of this request (PDF, zip, Office). At
+    # most 256 bytes in UTF-8, used exactly as sent. Alfred answers 400 where
+    # password-protected uploads are not enabled.
+    password: Optional[str]
 
 
 class UploadLocalFilePayload(TypedDict):
@@ -24,7 +36,18 @@ class UploadLocalFilePayload(TypedDict):
 
 
 class UploadResponse(TypedDict):
+    """Answer of `upload_file`: the file added to the deferred session."""
+
     file_id: str
+
+
+class UploadRemoteFileResponse(TypedDict, total=False):
+    """Answer of `upload`: the job created from the remote files."""
+
+    job_id: str
+    correlation_id: str
+    # Advisories about the submission; only present when there are any.
+    warnings: List[str]
 
 
 class DownloadResponse(TypedDict):
