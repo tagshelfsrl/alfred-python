@@ -20,8 +20,9 @@ class EventType(Enum):
 
 class FileEvent(Enum):
     """
-    Values of the `event_name` field of the events that arrive on the file
-    event stream (`file_event`).
+    Events of the file event stream (`file_event`). Each value is the
+    `event_name` Alfred puts in the event data, except FILE_REMOVE_TAG_EVENT,
+    which Alfred sends under the name of another event (see its comment).
     """
     # Defined by the platform; Alfred 1.130.0 does not send it.
     FILE_CREATE_EVENT = "alfred_event_file_create"
@@ -35,7 +36,8 @@ class FileEvent(Enum):
     # Signals the deletion of a file's category.
     FILE_CATEGORY_DELETE_EVENT = "alfred_event_file_category_delete"
 
-    # Indicates a change in the tag associated with a file.
+    # Indicates a change in the tag associated with a file. Alfred sends tag
+    # removals under this name too (see FILE_REMOVE_TAG_EVENT).
     FILE_CHANGE_TAG_EVENT = "alfred_event_file_change_tag"
 
     # Signals that a file was decomposed into other files.
@@ -71,9 +73,11 @@ class FileEvent(Enum):
     # Signals the deletion of a file property.
     FILE_PROPERTY_DELETE_EVENT = "alfred_event_file_property_delete"
 
-    # Alfred sends a tag removal under the change-tag name, so this is an alias
-    # of FILE_CHANGE_TAG_EVENT. A removal carries `tag_being_removed_id`.
-    FILE_REMOVE_TAG_EVENT = "alfred_event_file_change_tag"
+    # Signals the removal of a tag from a file. Alfred has no event name of its
+    # own for this: it sends `alfred_event_file_change_tag` with
+    # `tag_being_removed_id` in the data. The value below is the SDK's name for
+    # the subscription, and the real-time client delivers those events to it.
+    FILE_REMOVE_TAG_EVENT = "alfred_event_file_remove_tag"
 
     # Indicates an update in the file's status.
     FILE_STATUS_UPDATE_EVENT = "alfred_event_file_status_update"
@@ -84,8 +88,10 @@ class FileEvent(Enum):
 
 class JobEvent(Enum):
     """
-    Values of the `event_name` field of the events that arrive on the job
-    event stream (`job_event`).
+    Events of the job event stream (`job_event`). Each value is the
+    `event_name` Alfred puts in the event data, except
+    JOB_EXCEEDED_RETRIES_EVENT, which Alfred sends under the name of another
+    event (see its comment).
     """
     # Triggered when a new job is instantiated for file operations.
     JOB_CREATE_EVENT = "alfred_event_job_create"
@@ -96,14 +102,16 @@ class JobEvent(Enum):
     # Occurs when job transitions from one workflow stage to another.
     JOB_STAGE_UPDATE_EVENT = "alfred_event_job_stage_update"
 
-    # Sent after JOB_FAILED_EVENT when the job has used up its retries
-    # (`exceeded_retries` is true). Despite the name, Alfred 1.130.0 does not
-    # send it when a job is retried.
+    # Every event Alfred names `alfred_event_job_retry`. Alfred 1.130.0 sends
+    # it only after JOB_FAILED_EVENT, when the job has used up its retries
+    # (see JOB_EXCEEDED_RETRIES_EVENT), and not when a job is retried.
     JOB_RETRY_EVENT = "alfred_event_job_retry"
 
-    # Alfred has no separate name for a job that has used up its retries: it is
-    # sent under the retry name, so this is an alias of JOB_RETRY_EVENT.
-    JOB_EXCEEDED_RETRIES_EVENT = "alfred_event_job_retry"
+    # Fires when a job has used up its retries. Alfred has no event name of its
+    # own for this: it sends `alfred_event_job_retry` with `exceeded_retries`
+    # set to true. The value below is the SDK's name for the subscription, and
+    # the real-time client delivers those events to it.
+    JOB_EXCEEDED_RETRIES_EVENT = "alfred_event_job_exceeded_retries"
 
     # Fires when job fails initial validation of input files or parameters.
     JOB_INVALID_EVENT = "alfred_event_job_invalid"
@@ -121,7 +129,8 @@ class JobEvent(Enum):
     JOB_FINISHED_EVENT = "alfred_event_job_finished"
 
 
-# Event names used by earlier SDK versions, mapped to the name Alfred sends.
+# Event names used by earlier SDK versions, mapped to the values of the
+# members above.
 LEGACY_EVENT_NAMES = {
     "file_add_to_job_event": "alfred_event_file_added_to_job",
     "file_category_create_event": "alfred_event_file_category_create",
@@ -136,11 +145,11 @@ LEGACY_EVENT_NAMES = {
     "file_move_to_recycle_bin_event": "alfred_event_file_move_to_recycle_bin",
     "file_property_create_event": "alfred_event_file_property_create",
     "file_property_delete_event": "alfred_event_file_property_delete",
-    "file_remove_tag_event": "alfred_event_file_change_tag",
+    "file_remove_tag_event": "alfred_event_file_remove_tag",
     "file_status_update_event": "alfred_event_file_status_update",
     "file_update_event": "alfred_event_file_update",
     "job_create_event": "alfred_event_job_create",
-    "job_exceeded_retries_event": "alfred_event_job_retry",
+    "job_exceeded_retries_event": "alfred_event_job_exceeded_retries",
     "job_failed_event": "alfred_event_job_failed",
     "job_finished_event": "alfred_event_job_finished",
     "job_invalid_event": "alfred_event_job_invalid",

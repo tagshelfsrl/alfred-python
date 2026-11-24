@@ -19,7 +19,7 @@ EXPECTED_FILE_EVENTS = {
     "FILE_MOVE_TO_RECYCLE_BIN_EVENT": "alfred_event_file_move_to_recycle_bin",
     "FILE_PROPERTY_CREATE_EVENT": "alfred_event_file_property_create",
     "FILE_PROPERTY_DELETE_EVENT": "alfred_event_file_property_delete",
-    "FILE_REMOVE_TAG_EVENT": "alfred_event_file_change_tag",
+    "FILE_REMOVE_TAG_EVENT": "alfred_event_file_remove_tag",
     "FILE_STATUS_UPDATE_EVENT": "alfred_event_file_status_update",
     "FILE_UPDATE_EVENT": "alfred_event_file_update",
 }
@@ -29,7 +29,7 @@ EXPECTED_JOB_EVENTS = {
     "JOB_START_EVENT": "alfred_event_job_start",
     "JOB_STAGE_UPDATE_EVENT": "alfred_event_job_stage_update",
     "JOB_RETRY_EVENT": "alfred_event_job_retry",
-    "JOB_EXCEEDED_RETRIES_EVENT": "alfred_event_job_retry",
+    "JOB_EXCEEDED_RETRIES_EVENT": "alfred_event_job_exceeded_retries",
     "JOB_INVALID_EVENT": "alfred_event_job_invalid",
     "JOB_FAILED_EVENT": "alfred_event_job_failed",
     "JOB_CANCELLED_EVENT": "alfred_event_job_cancelled",
@@ -45,11 +45,20 @@ class TestEventConstants(unittest.TestCase):
     def test_job_event_members_have_the_names_alfred_sends(self):
         self.assertEqual({n: m.value for n, m in JobEvent.__members__.items()}, EXPECTED_JOB_EVENTS)
 
-    def test_remove_tag_is_an_alias_of_change_tag(self):
-        self.assertIs(FileEvent.FILE_REMOVE_TAG_EVENT, FileEvent.FILE_CHANGE_TAG_EVENT)
+    def test_remove_tag_and_change_tag_are_separate_members(self):
+        self.assertIsNot(FileEvent.FILE_REMOVE_TAG_EVENT, FileEvent.FILE_CHANGE_TAG_EVENT)
 
-    def test_exceeded_retries_is_an_alias_of_retry(self):
-        self.assertIs(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, JobEvent.JOB_RETRY_EVENT)
+    def test_exceeded_retries_and_retry_are_separate_members(self):
+        self.assertIsNot(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, JobEvent.JOB_RETRY_EVENT)
+
+    def test_no_event_member_is_an_alias_of_another(self):
+        for enum in (FileEvent, JobEvent):
+            self.assertEqual(len(list(enum)), len(enum.__members__), enum.__name__)
+
+    def test_file_and_job_events_share_no_value(self):
+        file_values = {member.value for member in FileEvent}
+        job_values = {member.value for member in JobEvent}
+        self.assertEqual(file_values & job_values, set())
 
     def test_legacy_names_has_24_entries(self):
         self.assertEqual(len(LEGACY_EVENT_NAMES), 24)
@@ -63,12 +72,8 @@ class TestEventConstants(unittest.TestCase):
         for name, target in LEGACY_EVENT_NAMES.items():
             self.assertIn(target, values, name)
 
-    def test_legacy_names_follow_the_naming_rule_except_for_three_exceptions(self):
-        exceptions = {
-            "file_add_to_job_event": "alfred_event_file_added_to_job",
-            "file_remove_tag_event": "alfred_event_file_change_tag",
-            "job_exceeded_retries_event": "alfred_event_job_retry",
-        }
+    def test_legacy_names_follow_the_naming_rule_except_for_one_exception(self):
+        exceptions = {"file_add_to_job_event": "alfred_event_file_added_to_job"}
         for name, target in LEGACY_EVENT_NAMES.items():
             expected = exceptions.get(name, "alfred_event_" + name[: -len("_event")])
             self.assertEqual(target, expected, name)

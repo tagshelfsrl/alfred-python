@@ -495,7 +495,79 @@ class TestAlfredRealTimeClient(unittest.TestCase):
         events = [c[0][0] for c in self.socket.on.call_args_list]
         self.assertEqual(events.count("job_event"), 1)
 
-    def test_job_exceeded_retries_alias_fires_on_the_retry_event_name(self):
+    # Events Alfred sends under the name of another event
+
+    def test_remove_tag_subscription_fires_for_a_change_tag_event_that_removes_a_tag(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, callback)
+        data = {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"}
+
+        self._deliver("file_event", data)
+
+        callback.assert_called_once_with(data)
+
+    def test_remove_tag_subscription_does_not_fire_for_a_change_of_tag(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, callback)
+
+        self._deliver("file_event", {"event_name": "alfred_event_file_change_tag", "new_tag_id": "t2"})
+        self._deliver(
+            "file_event",
+            {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": None},
+        )
+
+        callback.assert_not_called()
+
+    def test_change_tag_subscription_fires_for_changes_and_for_removals(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(FileEvent.FILE_CHANGE_TAG_EVENT, callback)
+        change = {"event_name": "alfred_event_file_change_tag", "new_tag_id": "t2"}
+        removal = {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"}
+
+        self._deliver("file_event", change)
+        self._deliver("file_event", removal)
+
+        self.assertEqual([c[0][0] for c in callback.call_args_list], [change, removal])
+
+    def test_change_tag_and_remove_tag_subscriptions_do_not_replace_each_other(self):
+        calls = []
+        client = self._client()
+        client.on(FileEvent.FILE_CHANGE_TAG_EVENT, lambda data: calls.append("change"))
+        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, lambda data: calls.append("remove"))
+
+        self._deliver(
+            "file_event",
+            {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"},
+        )
+        self._deliver("file_event", {"event_name": "alfred_event_file_change_tag", "new_tag_id": "t2"})
+
+        self.assertEqual(calls, ["change", "remove", "change"])
+
+    def test_legacy_remove_tag_name_fires_for_removals_only(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on("file_remove_tag_event", callback)
+        removal = {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"}
+
+        self._deliver("file_event", {"event_name": "alfred_event_file_change_tag", "new_tag_id": "t2"})
+        self._deliver("file_event", removal)
+
+        callback.assert_called_once_with(removal)
+
+    def test_remove_tag_subscription_fires_if_alfred_sends_it_under_its_own_name(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, callback)
+        data = {"event_name": "alfred_event_file_remove_tag"}
+
+        self._deliver("file_event", data)
+
+        callback.assert_called_once_with(data)
+
+    def test_exceeded_retries_subscription_fires_for_a_retry_event_that_says_so(self):
         callback = MagicMock()
         client = self._client()
         client.on(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, callback)
@@ -505,15 +577,85 @@ class TestAlfredRealTimeClient(unittest.TestCase):
 
         callback.assert_called_once_with(data)
 
-    def test_file_remove_tag_alias_fires_on_the_change_tag_event_name(self):
+    def test_exceeded_retries_subscription_does_not_fire_for_other_retry_events(self):
         callback = MagicMock()
         client = self._client()
-        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, callback)
-        data = {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"}
+        client.on(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, callback)
 
-        self._deliver("file_event", data)
+        for value in (False, None, "true", 1):
+            self._deliver("job_event", {"event_name": "alfred_event_job_retry", "exceeded_retries": value})
+        self._deliver("job_event", {"event_name": "alfred_event_job_retry"})
+
+        callback.assert_not_called()
+
+    def test_retry_subscription_fires_for_every_retry_event(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(JobEvent.JOB_RETRY_EVENT, callback)
+
+        self._deliver("job_event", {"event_name": "alfred_event_job_retry", "exceeded_retries": True})
+        self._deliver("job_event", {"event_name": "alfred_event_job_retry", "exceeded_retries": False})
+
+        self.assertEqual(callback.call_count, 2)
+
+    def test_retry_and_exceeded_retries_subscriptions_do_not_replace_each_other(self):
+        calls = []
+        client = self._client()
+        client.on(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, lambda data: calls.append("exceeded"))
+        client.on(JobEvent.JOB_RETRY_EVENT, lambda data: calls.append("retry"))
+
+        self._deliver("job_event", {"event_name": "alfred_event_job_retry", "exceeded_retries": True})
+
+        self.assertEqual(calls, ["retry", "exceeded"])
+
+    def test_legacy_exceeded_retries_name_fires_for_exhausted_retries_only(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on("job_exceeded_retries_event", callback)
+        exhausted = {"event_name": "alfred_event_job_retry", "exceeded_retries": True}
+
+        self._deliver("job_event", {"event_name": "alfred_event_job_retry", "exceeded_retries": False})
+        self._deliver("job_event", exhausted)
+
+        callback.assert_called_once_with(exhausted)
+
+    def test_exceeded_retries_subscription_fires_if_alfred_sends_it_under_its_own_name(self):
+        callback = MagicMock()
+        client = self._client()
+        client.on(JobEvent.JOB_EXCEEDED_RETRIES_EVENT, callback)
+        data = {"event_name": "alfred_event_job_exceeded_retries"}
+
+        self._deliver("job_event", data)
 
         callback.assert_called_once_with(data)
+
+    # Errors raised by callbacks
+
+    def test_every_callback_runs_and_the_first_error_is_raised_when_several_raise(self):
+        removal_callback = MagicMock()
+        client = self._client()
+        client.on_file_event(MagicMock(side_effect=RuntimeError("stream")))
+        client.on(FileEvent.FILE_CHANGE_TAG_EVENT, MagicMock(side_effect=ValueError("change")))
+        client.on(FileEvent.FILE_REMOVE_TAG_EVENT, removal_callback)
+        data = {"event_name": "alfred_event_file_change_tag", "tag_being_removed_id": "t1"}
+
+        with self.assertRaises(RuntimeError) as raised:
+            self._deliver("file_event", data)
+
+        self.assertEqual(str(raised.exception), "stream")
+        removal_callback.assert_called_once_with(data)
+
+    def test_error_of_an_event_callback_is_raised_when_the_stream_callback_succeeds(self):
+        stream_callback = MagicMock()
+        client = self._client()
+        client.on_job_event(stream_callback)
+        client.on(JobEvent.JOB_FINISHED_EVENT, MagicMock(side_effect=ValueError("event")))
+        data = {"event_name": "alfred_event_job_finished"}
+
+        with self.assertRaises(ValueError):
+            self._deliver("job_event", data)
+
+        stream_callback.assert_called_once_with(data)
 
     def test_data_that_is_not_a_dict_reaches_only_the_stream_callback(self):
         stream_callback, event_callback = MagicMock(), MagicMock()

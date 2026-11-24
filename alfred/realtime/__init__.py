@@ -24,6 +24,20 @@ EVENT_NAME_STREAMS = {
     "alfred_event_bulk_task_": "bulk_task_event",
 }
 
+# Events Alfred has no name of its own for: it announces each under the name
+# of another event, and the data tells them apart.
+#   subscription name -> (event_name Alfred sends, test on the event data)
+REFINED_EVENTS = {
+    FileEvent.FILE_REMOVE_TAG_EVENT.value: (
+        FileEvent.FILE_CHANGE_TAG_EVENT.value,
+        lambda data: data.get("tag_being_removed_id") is not None,
+    ),
+    JobEvent.JOB_EXCEEDED_RETRIES_EVENT.value: (
+        JobEvent.JOB_RETRY_EVENT.value,
+        lambda data: data.get("exceeded_retries") is True,
+    ),
+}
+
 
 class AlfredRealTimeClient:
     def __init__(self, config: ConfigurationDict, auth_config: AuthConfiguration, verbose=False, error_callback=None, on_connect=None):
@@ -154,6 +168,11 @@ class AlfredRealTimeClient:
                 every event on that stream.
             callback (function): Called with the event data. Registering again
                 for the same event replaces the earlier callback.
+
+        FileEvent.FILE_REMOVE_TAG_EVENT and JobEvent.JOB_EXCEEDED_RETRIES_EVENT
+        have no event name of their own on the server: Alfred sends them as a
+        change of tag and as a retry. The SDK recognises them from the event
+        data, so each is a subscription of its own.
         """
         name = event.value if isinstance(event, Enum) else event
         if isinstance(name, str):
@@ -190,22 +209,32 @@ class AlfredRealTimeClient:
 
     def __dispatch(self, stream, data):
         """
-        Calls the callback of the stream, then the callback of the event named
-        in the data.
+        Calls the callback of the stream, then the callbacks of the event the
+        data describes. Every one of them runs, even when an earlier one raises;
+        the first error is raised once all have run.
         """
         if self.verbose:
             self.logger.debug("Event %s received: %s", stream, data)
 
-        stream_callback = self.__stream_callbacks.get(stream)
+        callbacks = [self.__stream_callbacks.get(stream)]
         event_name = data.get("event_name") if isinstance(data, dict) else None
-        event_callback = self.__event_callbacks.get(event_name) if isinstance(event_name, str) else None
+        if isinstance(event_name, str):
+            callbacks.append(self.__event_callbacks.get(event_name))
+            for name, (sent_as, matches) in REFINED_EVENTS.items():
+                if event_name == sent_as and matches(data):
+                    callbacks.append(self.__event_callbacks.get(name))
 
-        try:
-            if stream_callback is not None:
-                stream_callback(data)
-        finally:
-            if event_callback is not None:
-                event_callback(data)
+        error = None
+        for callback in callbacks:
+            if callback is None:
+                continue
+            try:
+                callback(data)
+            except Exception as err:
+                if error is None:
+                    error = err
+        if error is not None:
+            raise error
 
     def disconnect(self):
         """
