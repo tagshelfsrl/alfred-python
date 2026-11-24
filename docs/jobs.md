@@ -226,7 +226,7 @@ Returns a `JobPageDict`, always in this shape:
 | `total` | int | Jobs matching the filters, across all pages. |
 | `has_more` | bool | `page * page_size < total`. |
 
-Any other key the server sends on the envelope is kept.
+All five keys are always present. Any other key the server sends on the envelope is kept.
 
 ```python
 page = jobs.get_all(page_size=25, page=1, sort_direction="DESC")
@@ -245,7 +245,7 @@ Server-side filter rules (Alfred answers 400 with `{"error": "<message>", "statu
 | Dates are not in the future | `Start date cannot be in the future.` / `End date cannot be in the future.` |
 | Start is not after end | `Start date cannot be after end date.` |
 
-The date range covers whole UTC days. With only `start_date`, the range runs to the end of today. `view="full"` returns 403 and a bad `view` returns 400 with a `message` key, as for `get`.
+The date range covers whole UTC days. With only `start_date`, the range runs to the end of today. As for `get`, `view="full"` without the role returns 403 and an unknown `view` returns 400, both with a `message` key.
 
 Walking every page:
 
@@ -284,7 +284,7 @@ if not result["canceled"]:
     print("The job was not canceled")
 ```
 
-Errors worth handling: Alfred answers with an error status for an ID that is malformed or not one of your jobs. I could not confirm the exact status from the server source, so check [errors.md](errors.md) and handle the error rather than relying on a specific code.
+Errors worth handling: 404 when the job does not exist or is not yours, and 403 when the caller is not allowed to cancel it. See [errors.md](errors.md).
 
 ### restart
 
@@ -317,6 +317,8 @@ Alfred can refuse a restart. The refusal is an HTTP error, 409 or 400, with a bo
 
 `reason` identifies the rule. `sources-missing` (409, a redownload restart whose sources are gone) also carries `detail` and `missing_sources`. 400 refusals use reasons such as `csv-requires-ingestor` and `password-requires-ingestor`. A 409 can succeed later if the sources come back. See [errors.md](errors.md) for how to read the body.
 
+As for `cancel`, Alfred answers 404 when the job does not exist or is not yours, and 403 when the caller is not allowed to restart it.
+
 ### check_sources
 
 Checks whether the remote sources of a job can still be downloaded.
@@ -332,7 +334,7 @@ Returns:
 | Field | Type | Meaning |
 |---|---|---|
 | `available` | bool | All sources are reachable. |
-| `unavailable_urls` | list of string | The URLs that are not. Can be absent when there are none. |
+| `unavailable_urls` | list of string | The URLs that are not. Empty when every source is reachable. |
 
 Alfred's response is built from a field named `unavailableUrls`; its JSON serializer converts every property name to snake_case, so it arrives as `unavailable_urls`.
 
@@ -395,7 +397,7 @@ Keep the interval at a few seconds so you do not flood the API. To be told inste
 - Older Alfred ignores `view`. `get()` then returns the full shape whatever you ask. The SDK still parses `metadata` if it is present. Code that reads `files` after `get(job_id, view="full")` works on both.
 - Older Alfred answers `get_all()` with `{"result": [...], "total": N, "is_empty": bool}`. The SDK converts it to the envelope above: `items` from `result`, `page` and `page_size` from what you asked for (1 and 10 when you did not), and `has_more` computed from `total`. Items are then the old full-shaped items, so a `metadata` key is parsed when present. `is_empty` is dropped; use `not page["items"]`.
 - Older Alfred ignores `page` and `page_size`, which is why the SDK also sends `currentPage` and `pageSize`.
-- The `correlation_id` filter and field need an Alfred version that supports correlation IDs (1.127.0 and later). See [compatibility.md](compatibility.md).
+- The `correlation_id` filter and field need an Alfred version that supports correlation IDs (1.127.0 and later).
 
 ## Upgrading from 0.6.x
 
@@ -447,5 +449,5 @@ Other changes:
 - [files.md](files.md): reading the files of a job.
 - [sessions.md](sessions.md): deferred upload sessions.
 - [realtime.md](realtime.md): events instead of polling.
-- [compatibility.md](compatibility.md): SDK and Alfred versions.
+- [compatibility.md](compatibility.md): supported Python versions and dependencies.
 - [authentication.md](authentication.md), [configuration.md](configuration.md): building the client.
