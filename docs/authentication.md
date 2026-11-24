@@ -76,7 +76,7 @@ auth_config = AuthConfiguration(
 What the client does:
 
 - It requests a token lazily, on the first request, with `POST /token` (form-encoded `grant_type=password`, `username`, `password`), and keeps the token in memory.
-- When a request is answered with `401 Unauthorized`, it discards the token, fetches a new one and resends that request once. If Alfred refuses to issue the token, or refuses the resent request too, the call fails with an authentication error (see [errors.md](errors.md)). The next call starts again from a fresh token request.
+- When a request is answered with `401 Unauthorized`, it discards the token, fetches a new one and resends that request once. What you get when that fails too is described in [errors.md](errors.md).
 - Alfred's public documentation says tokens typically expire after one month, so most scripts fetch a single token. The SDK does not read the expiry: it fetches a new token only after a `401`.
 
 ## HMAC

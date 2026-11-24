@@ -73,7 +73,7 @@ Situations to handle (see [errors.md](errors.md)):
 
 - `404`: the file does not exist, or its tag has no data points to extract (the body says so), or the lookup failed. Treat it as "no values for this file".
 - `401`: your credentials are not allowed to read this file.
-- No content (`204`): the server can answer with no body when it has nothing for the file. `get_values` then returns `None`, so check for it before reading the result.
+- No content (`204`): the server can answer with no body when it has nothing for the file. Treat it as "no values for this file"; [errors.md](errors.md#responses-that-cannot-be-parsed) describes what the client returns for an empty answer.
 
 ## Connections to other domains
 

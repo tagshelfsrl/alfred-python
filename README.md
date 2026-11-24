@@ -63,7 +63,7 @@ Every page stands on its own. Start at the [documentation index](docs/README.md)
 | [Sessions](docs/sessions.md) | Deferred sessions: group several uploads into one job. |
 | [Jobs](docs/jobs.md) | Create jobs, read their status, list jobs. |
 | [Data points](docs/data-points.md) | Read the values Alfred extracted from a file. |
-| [Classification](docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. A new `client.classifications` domain. |
+| [Classification](docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
 | [Real-time events](docs/realtime.md) | Subscribe to job and file events over a socket; the full event catalogue. |
 | [Error handling](docs/errors.md) | What the SDK raises and how to handle it. |
 | [Compatibility](docs/compatibility.md) | Supported Python versions and dependency policy. |
