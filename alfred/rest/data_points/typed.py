@@ -89,7 +89,8 @@ class _DataPointValueRequired(TypedDict):
 class DataPointValue(_DataPointValueRequired, total=False):
     """
     One row of `DataPoints.get_values`: the value Alfred extracted for one
-    data point of a file.
+    data point of a file, as Alfred 1.117.0 and later send it. Earlier
+    versions sent neither `field_key` nor the optional keys.
 
     `classification_score` is Alfred's confidence in the value, from 0 to 1.
     The three optional keys are present only when there is something to

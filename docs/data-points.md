@@ -42,7 +42,7 @@ Returns a list of dictionaries, one per data point of the file's tag (the type i
 
 The first seven fields are always there. The three optional ones are left out when there is nothing to report, so read them with `.get()`.
 
-`field_key`, `extracted_value`, `normalized_value` and `validation` are sent by Alfred 1.117.0 and later.
+This is the row of Alfred 1.117.0 and later, which is what the hosted service runs. Versions before it sent neither `field_key` nor the three optional fields; if you call an environment that old, read `field_key` with `.get()` as well and fall back to `metadata_id`.
 
 ```python
 values = client.data_points.get_values("559167cb-4c76-4e28-bf15-34cbf614119c")
