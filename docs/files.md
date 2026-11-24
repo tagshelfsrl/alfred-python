@@ -134,6 +134,7 @@ Errors worth handling: `404` when the file does not exist (see [errors.md](error
 | `metadata` | `dict` or `list[dict]` | none | Your own data. Send one object for a single file, or when `merge` or `propagate_metadata` is true. Otherwise send one object per file, in the same order as the URLs. |
 | `propagate_metadata` | `bool` | `false` | Apply the single `metadata` object to every file. |
 | `parent_file_prefix` | `str` | none | Virtual folder for the documents split out of each file (used when splitting). |
+| `password` | `str` | none | Password for protected files. See [Password-protected files](#password-protected-files). |
 
 Returns a dictionary. The server answers `202 Accepted` with:
 
@@ -169,6 +170,29 @@ Things to know:
 - The result has a `job_id`, not a `file_id`. The `UploadResponse` type in the SDK says `file_id`; that is only right for `upload_file`. To find the files of the job, use [`jobs.get`](jobs.md).
 - The SDK sends your dictionary to the server as is, without validating or filtering it. Fields that the public API accepts but the SDK's type does not list, such as `decompose`, `page_rotation`, `priority`, `channel` and `correlation_id`, are forwarded and work at runtime; a type checker will flag them. See the public [Upload files from URLs](https://docs.tagshelf.dev/endpoints/file) reference for what they do. The cloud-storage file names are sent as `file_name` or `file_names`, which the SDK's type does not list. The type lists `filename` and `filenames` instead; the server source (version 1.130.0) reads only `file_name` and `file_names` for `/api/file/upload`, so `filename` and `filenames` have no effect there. They were not found in the server code for URL uploads either, so do not expect them to rename URL-based files.
 - Retries: `upload` is a `POST` and is not retried automatically (see [Retries](configuration.md#retries)). If it fails with a timeout, check the job list before sending again, or you may create the job twice.
+
+#### Password-protected files
+
+Alfred 1.130.0 accepts a password for protected PDFs, zips (ZipCrypto or AES) and Office files (docx, xlsx, pptx). Add an optional top-level `password` string to the `upload` payload:
+
+```python
+result = client.files.upload(
+    {
+        "urls": ["https://files.example.com/statements/statement.pdf"],
+        "password": "the file's password",
+    }
+)
+print(result["job_id"])
+```
+
+- The password applies to every file of the request and to anything inside them: the entries of a protected zip, or a protected PDF inside a zip.
+- It can be at most 256 bytes in UTF-8, and Alfred uses it exactly as sent (not trimmed or normalised). `None` or leaving it out means no password.
+- Send it in the body, as shown. Alfred never reads a password from the query string or headers.
+- Availability: the feature is switched on per environment. Where it is off, or for accounts on the legacy pipeline, Alfred refuses the request with `400` and a message saying so; it never accepts the request and silently ignores the password. Other `400` messages cover a password that is not a string, empty or too long.
+- A protected file sent without a password, or with the wrong one, ends with the status "Password required".
+- Inbound email and Drive or bucket sources cannot carry a password: their protected files also end as "Password required".
+- For local files uploaded with `upload_file`, the password is sent when the session becomes a job instead (see [`upload_file`](#upload_file)).
+- The SDK forwards the dictionary as is. In its request log, JSON bodies are not printed (see [Logging](configuration.md#logging)). Anything beyond that about how the SDK handles the password is not documented here.
 
 Errors worth handling (see [errors.md](errors.md)): `400` when no source, more than one kind of source, an unsupported file type for your company, or a metadata count that does not match the file count; `401` for bad credentials.
 
@@ -246,6 +270,10 @@ Because the file is rewound, a file you have partly read is still sent in full.
 
 Alfred refuses an upload that is too large with `413 Payload Too Large`. The public documentation states a limit of 250 MB per file. Your workspace may set a lower limit in its cloud settings, and Alfred then also answers `413`. The response body contains a `message` and `max_bytes`, the limit that applied. The SDK does not check the size before sending, so the whole file is transferred before you learn it was rejected. Check the size yourself with `os.path.getsize` when you can. See [errors.md](errors.md) for how a `413` reaches your code.
 
+#### Passwords
+
+`upload_file` has no password field. The password is not sent with each file: send it when the session becomes a job, as `client.jobs.create({"session_id": session_id, "password": "..."})`. See [jobs.md](jobs.md) for the job side and [Password-protected files](#password-protected-files) under `upload` for the rules.
+
 #### Other things to know
 
 - The channel field that the public API accepts for `uploadfile` is not exposed by `upload_file`.
@@ -260,5 +288,6 @@ Errors worth handling (see [errors.md](errors.md)): `400` when the session is un
 - [Sessions](sessions.md): open the session that `upload_file` needs
 - [Jobs](jobs.md): submit a session, follow a job, find the files of a job
 - [Data points](data-points.md): read what Alfred extracted from a file
+- [Classification](classification.md): classify a text or file against criteria you send with the request
 - [Real-time events](realtime.md): be told when a file is done instead of polling `get`
 - [Error handling](errors.md)

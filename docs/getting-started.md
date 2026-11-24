@@ -77,7 +77,7 @@ job_id = job["job_id"]
 print(job_id)
 ```
 
-Submitting the session closes it and starts processing. After this you cannot upload more files into that session; open a new one for the next batch. The other options of `jobs.create` (merging, decomposing, channel, metadata for the whole job) are described in [jobs.md](jobs.md).
+Submitting the session closes it and starts processing. After this you cannot upload more files into that session; open a new one for the next batch. If any of the files is a password-protected PDF, zip or Office file, send the password here, as `"password": "..."` in the same dictionary, because a session's files are uploaded without one (see [jobs.md](jobs.md)). The other options of `jobs.create` (merging, decomposing, channel, metadata for the whole job) are described in [jobs.md](jobs.md).
 
 ### 4. Wait for the job
 
@@ -176,4 +176,5 @@ for path, file_id in uploaded:
 
 - [Real-time events](realtime.md): replace polling with pushed events
 - [Files](files.md), [Sessions](sessions.md), [Jobs](jobs.md), [Data points](data-points.md): each domain in full
+- [Classification](classification.md): classify a text or file against criteria you send, without setting up document types first
 - [Authentication](authentication.md) and [Configuration](configuration.md)

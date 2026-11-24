@@ -13,6 +13,7 @@ Each page is self-contained: you can land on any of them from a search and use i
 | [sessions.md](sessions.md) | `client.sessions`: open and inspect deferred sessions, which group several uploads into a single job. |
 | [jobs.md](jobs.md) | `client.jobs`: create jobs, read a job, list jobs. |
 | [data-points.md](data-points.md) | `client.data_points`: read the values Alfred extracted from a file. |
+| [classification.md](classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. A new `client.classifications` domain. |
 | [realtime.md](realtime.md) | `AlfredRealTimeClient`: subscribe to job and file events instead of polling, the event catalogue, threading, reconnection and failure modes. |
 | [errors.md](errors.md) | What the SDK raises and how to handle it. |
 | [compatibility.md](compatibility.md) | Supported Python versions and the dependency policy. |
