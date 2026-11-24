@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.4...v0.7.0) (2026-11-24)
+
+
+### Features
+
+* **sdk:** support Alfred 1.130 with job views, typed errors and standalone classification ([#67](https://github.com/tagshelfsrl/alfred-python/issues/67)) ([a014626](https://github.com/tagshelfsrl/alfred-python/commit/a0146268d6784bce072f4a8f82a9f16258c4ff4b))
+
 ## [0.6.4](https://github.com/tagshelfsrl/alfred-python/compare/v0.6.3...v0.6.4) (2026-03-19)
 
 
