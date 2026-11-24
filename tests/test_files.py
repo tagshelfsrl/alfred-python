@@ -75,6 +75,7 @@ FILE_DETAILS_ALWAYS_SENT = {
     "page_number",
     "job_order_index",
     "company_id",
+    "metadata",
     "effective_metadata",
     "assigned_to",
 }
@@ -82,8 +83,8 @@ FILE_DETAILS_ALWAYS_SENT = {
 # Added in Alfred 1.130.0: always present from that version on, absent before.
 FILE_DETAILS_ADDED_IN_1_130 = {"group_role", "is_processing_unit", "is_result_ready"}
 
-# Identifiers, dates and the metadata are left out when they have no value
-# (group_id is also one of the 1.130.0 additions).
+# Identifiers and dates are left out when they have no value (group_id is also
+# one of the 1.130.0 additions). The metadata is not: it is sent as null.
 FILE_DETAILS_SENT_WHEN_SET = {
     "tag_id",
     "proposed_tag_id",
@@ -94,7 +95,6 @@ FILE_DETAILS_SENT_WHEN_SET = {
     "deferred_session_id",
     "assignment_date",
     "validation_date",
-    "metadata",
 }
 
 FILE_DETAILS = {
@@ -103,7 +103,7 @@ FILE_DETAILS = {
     "update_date": "2026-11-24T10:01:00Z",
     "file_name": "invoice-1042.pdf",
     "file_name_without_extension": "invoice-1042",
-    "size": 48213,
+    "size": 0,
     "file_size": 48213,
     "blob_name": "559167cb-4c76-4e28-bf15-34cbf614119c.pdf",
     "blob_url": "https://storage.example.test/files/559167cb.pdf",
@@ -553,6 +553,17 @@ class TestFileDetailsType(unittest.TestCase):
             set(FILE_DETAILS),
             FILE_DETAILS_ALWAYS_SENT | FILE_DETAILS_SENT_WHEN_SET | FILE_DETAILS_ADDED_IN_1_130,
         )
+
+    def test_metadata_is_always_present_and_may_be_none(self):
+        self.assertIn("metadata", FileDetailsResponse.__required_keys__)
+
+        sent = dict(FILE_DETAILS, metadata=None)
+        client = RecordingHttpClient(get_result=(sent, None))
+
+        result = Files(client).get(FILE_DETAILS["id"])
+
+        self.assertIn("metadata", result)
+        self.assertIsNone(result["metadata"])
 
     def test_fields_added_in_alfred_1_130_are_typed_but_not_required(self):
         added = FILE_DETAILS_ADDED_IN_1_130 | {"group_id"}

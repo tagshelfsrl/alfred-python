@@ -36,7 +36,7 @@ Importing `alfred.rest` loads the `libmagic` system library (through `python-mag
 
 Returns the file as a dictionary. The SDK returns what Alfred sent, unchanged; the type is `FileDetailsResponse` in `alfred.rest.files`, and the tables below list every field of Alfred 1.130.0.
 
-Text fields without a value are sent as an empty string. Identifiers, dates and `metadata` are left out when they have no value, so read those with `.get()`; the tables mark them "optional". The four fields marked "New in Alfred 1.130.0" are absent when the environment you call runs an earlier version, so read those with `.get()` too.
+Text fields without a value are sent as an empty string. Identifiers and dates are left out when they have no value, so read those with `.get()`; the tables mark them "optional". The four fields marked "New in Alfred 1.130.0" are absent when the environment you call runs an earlier version, so read those with `.get()` too.
 
 The fields most integrations use:
 
@@ -45,13 +45,13 @@ The fields most integrations use:
 | `id` | string | The file's ID. |
 | `file_name`, `file_name_without_extension` | string | The name the file was stored under. |
 | `content_type` | string | The file's MIME type, for example `application/pdf`. |
-| `file_size`, `size` | integer | Size in bytes (the same number under two names). |
+| `file_size` | integer | Size in bytes. |
 | `status` | string | Where the file is in processing, for example `finished`. The values are listed in the public [File Status](https://docs.tagshelf.dev/endpoints/file/file-status) page. |
 | `is_result_ready` | boolean | Whether the file has a result you can read. See [When a file's results are ready](#when-a-files-results-are-ready). New in Alfred 1.130.0. |
 | `tag_id`, `tag_name` | string | The tag (document type) assigned to the file. `tag_id` is optional: it is present once the file has a tag. |
 | `classification_score` | number | Confidence in the tag, from 0 to 1. |
 | `channel` | string | How the file reached Alfred, for example `api`. |
-| `metadata` | object | Optional. The metadata you attached when you uploaded the file. |
+| `metadata` | object or `null` | The metadata you attached when you uploaded the file. The key is always there; its value is `null` when the file has none. |
 | `page_count`, `page_number` | integer | Number of pages; for a page split out of a larger document, its page number in the original. |
 | `is_parent`, `parent_id` | boolean, string | `is_parent` is `true` for a document Alfred split into several files. `parent_id` (optional) is on each of those files and points at the original. |
 | `deferred_session_id` | string | Optional. The session the file was uploaded into. |
@@ -100,6 +100,7 @@ Storage and ownership:
 | `user_name` | string | The user or application that uploaded the file. |
 | `company_id` | string | The account the file belongs to. |
 | `description` | string | A short description of the file. |
+| `size` | integer | Also a size in bytes, but production answers `0` in it (seen with Alfred 1.130.0). Use `file_size`. |
 
 ```python
 file = client.files.get("559167cb-4c76-4e28-bf15-34cbf614119c")
@@ -116,7 +117,7 @@ Example response:
   "update_date": "2026-11-24T13:07:40.910Z",
   "file_name": "invoice-1042.pdf",
   "file_name_without_extension": "invoice-1042",
-  "size": 182344,
+  "size": 0,
   "file_size": 182344,
   "blob_name": "559167cb-4c76-4e28-bf15-34cbf614119c.pdf",
   "blob_url": "https://storage.example.com/files/559167cb-4c76-4e28-bf15-34cbf614119c.pdf",
