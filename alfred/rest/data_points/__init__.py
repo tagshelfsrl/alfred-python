@@ -1,4 +1,5 @@
 from .base import DataPointsBase
+from .typed import *
 from .v1 import DataPoints as V1
 
 

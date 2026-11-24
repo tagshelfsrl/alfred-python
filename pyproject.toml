@@ -9,24 +9,33 @@ authors = [{ name = "Tagshelf LLC", email = "support@tagshelf.com" }]
 description = "Python library designed to simplify and streamline interactions with the Alfred API"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "pydantic >= 2.0",
-  "pydantic-settings >= 2.0",
-  "requests >= 2.30",
-  "python-socketio >= 5.11",
+  "requests >= 2.33.0",
+  "urllib3 >= 2.8.0",
+  "python-socketio >= 5.16.2",
   "websocket-client >= 1.8",
+  # Security floors for transitive dependencies of requests (its own bounds
+  # allow vulnerable releases).
+  "certifi >= 2026.10.18",
+  "idna >= 3.15",
   "python-magic==0.4.27; platform_system != 'Windows'",
   "python-magic-bin==0.4.14; platform_system == 'Windows'"
 ]
 
 [project.urls]
 homepage = "https://github.com/tagshelfsrl/alfred-python"
+documentation = "https://github.com/tagshelfsrl/alfred-python/tree/master/docs"
 
 [tool.setuptools.packages.find]
 include = ["alfred", "alfred.*"]

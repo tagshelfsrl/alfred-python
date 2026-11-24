@@ -1,8 +1,9 @@
 # Native imports
 import os
 import json
+from email.message import Message
+from email.utils import collapse_rfc2231_value
 from typing import Text
-from urllib.parse import unquote
 
 # Project imports
 from alfred.rest.files.typed import *  # pylint: disable=W0401, W0614
@@ -34,15 +35,37 @@ class Files(FilesBase):
             "original_name": original_name,
         }
 
-    def upload(self, payload: UploadRemoteFilePayload) -> UploadResponse:
-        parsed_resp, _ = self.http_client.post("/api/file/upload", data=payload)
+    def upload(self, payload: UploadRemoteFilePayload) -> UploadRemoteFileResponse:
+        parsed_resp, _ = self.http_client.post(
+            "/api/file/upload", data=self.__with_api_names(payload)
+        )
         return parsed_resp
+
+    @staticmethod
+    def __with_api_names(payload):
+        """
+        The API reads the names of remote files from `file_name` and
+        `file_names`. Earlier versions of this SDK documented `filename` and
+        `filenames`, which the API ignores: send those under the names it
+        reads. A value given under the API's own name wins. The caller's
+        payload is not modified.
+        """
+        if not isinstance(payload, dict):
+            return payload
+
+        body = dict(payload)
+        for legacy_name, api_name in (("filename", "file_name"), ("filenames", "file_names")):
+            if legacy_name in body:
+                value = body.pop(legacy_name)
+                body.setdefault(api_name, value)
+        return body
 
     def upload_file(self, payload: UploadLocalFilePayload) -> UploadResponse:
         file = payload.get("file")
         filename = payload.get("filename")
         session_id = payload.get("session_id")
-        metadata = payload.get("metadata", {})
+        # A missing or null metadata is sent as an empty object, not as "null".
+        metadata = payload.get("metadata") or {}
 
         # Detect MIME type
         content_type = magic.from_buffer(file.read(1024), mime=True)
@@ -79,12 +102,23 @@ class Files(FilesBase):
         Args:
         - content_disposition: Value of the Content-Disposition header.
         """
-        filename = None
-        if "filename*" in content_disposition:
-            filename = content_disposition.split("filename*=UTF-8''")[-1]
-            filename = unquote(filename)
-        elif "filename=" in content_disposition:
-            filename = content_disposition.split("filename=")[-1]
-            filename = filename.strip("\"'")
+        if not content_disposition:
+            return None
 
-        return filename
+        message = Message()
+        message["Content-Disposition"] = content_disposition
+
+        plain_filename = None
+        for name, value in message.get_params(header="content-disposition", failobj=[]):
+            if name.lower() != "filename":
+                continue
+            if isinstance(value, tuple):
+                # The encoded form (`filename*`, RFC 5987) wins over the plain
+                # one when both are sent (RFC 6266, section 4.3).
+                return collapse_rfc2231_value(value).strip() or None
+            if plain_filename is None:
+                plain_filename = value
+
+        if not plain_filename:
+            return None
+        return plain_filename.strip() or None

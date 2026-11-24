@@ -1,377 +1,101 @@
-# Overview
+# alfred-python
 
-Welcome to the `alfred-python` SDK, the official Python library for interfacing with Alfred, your intelligent process automation platform. This SDK provides a simple and efficient way to integrate Alfred's capabilities into your Python applications.
+`alfred-python` is the Python client for the Alfred (TagShelf) REST API and its real-time event stream. It wraps the endpoints for sessions, files, jobs, data points and standalone classification, handles authentication, retries and rate-limit throttling, and can push job and file events to your code as they happen.
 
-## Prerequisites
+## Install
 
-- Python v3.8+
+```bash
+pip install alfred-python
+```
 
-## Usage
+The SDK detects the type of every local file you upload with `python-magic`, which needs the `libmagic` system library. The SDK loads it when you import `alfred.rest`, so a missing library shows up as an import error:
 
-Check out this simple example to get up and running:
+- Debian and Ubuntu: `apt-get install libmagic1`
+- macOS: `brew install libmagic`
+- Windows: nothing to install. The SDK depends on `python-magic-bin`, which bundles the library.
+
+Supported Python versions are listed in [docs/compatibility.md](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/compatibility.md).
+
+## Quickstart
+
+Upload a local file, process it as a job and read the extracted data points. You need an API key (see [authentication](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/authentication.md)).
 
 ```python
+import time
+
+from alfred.base.config import Configuration
+from alfred.http.typed import AuthConfiguration
 from alfred.rest import AlfredClient
-from alfred.base import Configuration
-from alfred.http import AuthConfiguration
 
-config = Configuration.default()
-auth_config = AuthConfiguration(
-   api_key = "<api-key>"
+client = AlfredClient(
+    config=Configuration.v1(),
+    auth_config=AuthConfiguration({"api_key": "YOUR_API_KEY"}),
 )
 
-client = AlfredClient(config, auth_config)
+session_id = client.sessions.create()["session_id"]
 
-values = client.data_points.get_values("<file-id>")
-print(values)
+with open("invoice.pdf", "rb") as local_file:
+    file_id = client.files.upload_file(
+        {"file": local_file, "session_id": session_id}
+    )["file_id"]
+
+job_id = client.jobs.create({"session_id": session_id})["job_id"]
+
+stopped = ("completed", "failed", "invalid", "canceled", "expired")
+while client.jobs.get(job_id)["stage"] not in stopped:
+    time.sleep(5)
+
+print(client.data_points.get_values(file_id))
 ```
 
-### Sessions
+Polling is the simplest way to wait. To be notified instead, use the [real-time client](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/realtime.md). [Getting started](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/getting-started.md) explains each step.
 
-A Session is a mechanism designed for asynchronous file uploads. It serves as a container or grouping for files that are uploaded at different times or from various sources, but are all part of a single Job. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/deferred-session).
+## Documentation
 
-#### Create session
+Every page stands on its own. Start at the [documentation index](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/README.md).
 
-```python
-result = client.sessions.create()
-session_id = result.get("session_id")
-print(session_id)
+| Page | What it covers |
+| --- | --- |
+| [Getting started](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/getting-started.md) | Install, create a client, and an end-to-end walkthrough from session to results. |
+| [Authentication](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/authentication.md) | API key, OAuth (username and password) and HMAC; the `ALFRED_API_KEY` environment variable. |
+| [Configuration](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/configuration.md) | Base URLs, HTTP settings (timeout, retries, throttling), response types, logging and custom HTTP clients. |
+| [Files](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/files.md) | Upload local files and remote URLs, read file details, download the original. |
+| [Sessions](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/sessions.md) | Deferred sessions: group several uploads into one job. |
+| [Jobs](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/jobs.md) | Create jobs, read their status, list them, and cancel, restart or check the sources of a job. |
+| [Data points](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/data-points.md) | Read the values Alfred extracted from a file, with their confidence and validation results. |
+| [Classification](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
+| [Real-time events](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/realtime.md) | Subscribe to job and file events over a socket; the full event catalogue. |
+| [Error handling](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/errors.md) | What the SDK raises and how to handle it. |
+| [Compatibility](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/compatibility.md) | Supported Python versions and dependency policy. |
+
+## Development
+
+Install the pinned dependencies, then run the tests:
+
+```bash
+pip install -r requirements.txt
+python -m unittest
 ```
 
-#### Get session by ID
+The unit tests (`tests/test_*.py`) need no credentials and never leave your machine. `tests/__init__.py` holds integration tests that call a real Alfred environment. They create a session and a job, so point them at a test tenant. They are skipped unless `ALFRED_API_KEY` is set. The variables they read:
 
-```python
-result = client.sessions.get("<session-id>")
-print(result)
-```
-
-### Jobs
-
-A Job represents a single unit of work that group one or more Files within Alfred. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/job).
-
-#### Get job by ID
-
-```python
-result = client.jobs.get("<job-id>")
-print(result)
-```
-
-#### Get paginated jobs
-
-```python
-response = client.jobs.get_all(page_size=None, current_page=None)
-print(response.is_empty)  
-print(response.result)
-print(response.total)
-```
-
-#### Create job
-
-```python
-from alfred.rest.jobs import CreateJobDict
-
-job: CreateJobDict = {
-   "session_id": "session-id",
-   "propagate_metadata": True,
-   "merge": True,
-   "decompose": True,
-   "metadata": {
-      "key": "value",
-   },
-   "channel": "channel",
-   "parent_file_prefix": "prefix",
-   "page_rotation": 90,
-   "container": "container",
-   "file_name": "file-name",
-   "file_names": ["file-name-1", "file-name-2"],
-}
-
-result = client.jobs.create(job)
-print(result)
-```
-
-Here is a description for each valid argument when creating a job:
-
-| Parameter          | Type     | Description                                                                                                                              |
-| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| session_id         | string   | Session ID                                                                                                                               |
-| metadata           | any      | Metadata of the job                                                                                                                      |
-| propagate_metadata | boolean  | If `true` ensures that the provided metadata at the Job level is attached to all the specified Files.                                    |
-| merge              | boolean  | If `true`, when all provided Files are either images or PDFs, the system combines them into a single file for the purpose of processing. |
-| decompose          | boolean  | If `true`, when the provided File is a PDF, the system will decompose it into individual pages for processing.                           |
-| channel            | string   | Channel                                                                                                                                  |
-| parent_file_prefix | string   | The `parent_file_prefix` parameter is used to specify a virtual folder destination for the uploaded files.                               |
-| page_rotation      | number   | Page rotation                                                                                                                            |
-| container          | string   | Virtual container where the referenced remote file is located.                                                                           |
-| file_name          | string   | Unique name of the file within an object storage source.                                                                                 |
-| file_names         | string[] | Array of unique names of the files within an object storage source.                                                                      |
-
-### Files
-
-File is an individual document or data unit undergoing specialized operations tailored for document analysis and management. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/file).
-
-#### Get file by ID
-
-```python
-from alfred.rest.files import FileDetailsResponse
-
-result: FileDetailsResponse = client.files.get("<file-id>")
-print(result)
-```
-
-#### Download file by ID
-
-```python
-from alfred.rest.files import DownloadResponse
-
-result: DownloadResponse = client.files.download("<file-id>")
-
-with open(result.get("original_name"), "wb") as f:
-   f.write(result.get("file").getvalue())
-```
-
-#### Upload a single remote file and create a Job
-
-```python
-from alfred.rest.files import UploadRemoteFilePayload, UploadResponse
-
-payload: UploadRemoteFilePayload = {
-   "url": "<file-url>",
-   "filename" "file-name", # optional
-   "metadata": {
-      "key": "value",
-   }
-}
-
-result: UploadResponse = client.files.upload(payload)
-print(result)
-```
-
-#### Upload multiple remote files and create a Job
-
-```python
-from alfred.rest.files import UploadRemoteFilePayload, UploadResponse
-
-payload: UploadRemoteFilePayload = {
-   "urls": ["<file-url>", "<file-url-2>"],
-   "filenames": ["file-name", "file-name-2"], # optional
-   "metadata": {
-      "key": "value",
-   }
-}
-
-result: UploadResponse = client.files.upload(payload)
-print(result)
-```
-
-#### Upload a local file by deferred session
-
-```python
-from alfred.rest.files import UploadLocalFilePayload, UploadResponse
-
-with open("<Path to local file>", "rb") as upload_file:
-
-   payload: UploadLocalFilePayload = {
-      "file": upload_file,
-      "filename": "file-name.jpeg", # optional
-      "session_id": "<session-id>",
-      "metadata": {}
-   }
-   result: UploadResponse = client.files.upload_file(payload)
-   print(result)
-```
-
-### Data Points
-
-Data Points are the core of Alfred's platform and represent data that you want to extract. To see more information visit our [official documentation](https://docs.tagshelf.dev/enpoints/metadata).
-
-> [!IMPORTANT]
-> Data Points where previously known as Metadata.
-
-#### Get Data Point by File ID
-
-```python
-result = client.data_points.get_values("<file-id>")
-print(result)
-```
-
-## Configuration
-
-This section provides detailed instructions and guidelines for configuring the SDK to interface effectively with the target API.
-
-### Retry Policy
-
-In this SDK, we implement automatic retries to enhance the reliability of network requests. However, to maintain the integrity of data transactions, retries are only enabled for HTTP methods that are considered idempotent. Idempotent methods are those that can be called multiple times without different outcomes. Thus, retries are applied only to the following HTTP methods:
-
-- `GET`: Retrieves data from the server without changing any state.
-- `PUT`: Updates a resource in a way that it can be repeatedly updated without changing the outcome beyond the initial application.
-- `DELETE`: Removes a resource and subsequent deletions of the same resource are redundant.
-- `HEAD`: Fetches metadata about a resource without side-effects.
-- `OPTIONS`: Retrieves supported communication options for a given URL or server without causing any side effects.
-
-For non-idempotent methods like POST and PATCH, the SDK does not perform retries by default because doing so could potentially result in unwanted side effects or duplicate operations. If you need to enable retries for these methods under specific circumstances, please handle them cautiously in your application logic.
-
-## Real-time Events
-
-The `alfred-python` library provides a way to listen to events emitted by Alfred IPA in real-time through a websockets implementation. This feature is particularly useful when you need to monitor the progress of a Job, File, or any other event that occurs within the Alfred platform. To see more information visit our [official documentation](https://docs.tagshelf.dev).
-
-### Getting started
-
-To get started, you need to create an instance of the `AlfredRealTimeClient` class.
-
-```python
-from alfred.realtime import AlfredRealTimeClient
-from alfred.base import Configuration
-from alfred.http import AuthConfiguration
-
-config = Configuration.default()
-
-auth_config = AuthConfiguration({
-    "api_key": "<api-key>"
-})
-
-realtime_client = AlfredRealTimeClient(
-   config,
-   auth_config,
-   verbose=False,
-   error_callback=None,
-   on_connect=None
-)
-```
-
-### File Events
-These events are specifically designed to respond to a variety of actions or status changes related to Files. To see more details about File events, visit our [official documentation](https://docs.tagshelf.dev/event-api/fileevents).
-```python
-# Listen to all File events
-realtime_client.on_file_event(lambda data: print(data))
-```
-
-### Job Events
-Alfred performs asynchronous document classification, extraction, and indexing on a variety of file types. The events detailed here offer insights into how a Job progresses, fails, retries, or completes its tasks. To see more details about Job events, visit our [official documentation](https://docs.tagshelf.dev/event-api/jobevents).
-
-```python
-# Listen to all Job events
-realtime_client.on_job_event(lambda data: print(data))
-```
-
-### Specific Events
-
-This enables you to select a specific event you wish to monitor from the list of supported events.
-It's particularly useful when you want to listen to a specific event instead of all events of a particular type.
-
-Here's an example of how to listen to a specific event:
-
-```python
-from alfred.base import FileEvent, JobEvent
-
-# Listen to the specific File Done event
-realtime_client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print(data))
-
-# Listen to the specific Job Finished event
-realtime_client.on(JobEvent.JOB_FINISHED_EVENT.value, lambda data: print(data))
-```
-
-Here is a list of all supported events:
-
-| Event Type | Event Name | Description |
+| Variable | Default | Meaning |
 | --- | --- | --- |
-| FileEvent | `FILE_ADD_TO_JOB_EVENT` | Triggered when a file is added to a job for processing. |
-| FileEvent | `FILE_CATEGORY_CREATE_EVENT` | Occurs when a new category is created for a file. |
-| FileEvent | `FILE_CATEGORY_DELETE_EVENT` | Signals the deletion of a file's category. |
-| FileEvent | `FILE_CHANGE_TAG_EVENT` | Indicates a change in the tag associated with a file. |
-| FileEvent | `FILE_DONE_EVENT` | Marks the completion of file processing. |
-| FileEvent | `FILE_EXTRACTED_DATA_CREATE_EVENT` | Triggered when new data is extracted from a file. |
-| FileEvent | `FILE_EXTRACTED_DATA_DELETE_EVENT` | Occurs when extracted data from a file is deleted. |
-| FileEvent | `FILE_FAILED_EVENT` | Indicates a failure in file processing. |
-| FileEvent | `FILE_MOVE_EVENT` | Signals the movement of a file within the system. |
-| FileEvent | `FILE_MOVE_TO_PENDING_EVENT` | Triggered when a file is moved to a pending state. |
-| FileEvent | `FILE_MOVE_TO_RECYCLE_BIN_EVENT` | Indicates movement of a file to the recycle bin. |
-| FileEvent | `FILE_PROPERTY_CREATE_EVENT` | Reflects the creation of a file property. |
-| FileEvent | `FILE_PROPERTY_DELETE_EVENT` | Signals the deletion of a file property. |
-| FileEvent | `FILE_REMOVE_TAG_EVENT` | Signals the removal of a tag from a file. |
-| FileEvent | `FILE_STATUS_UPDATE_EVENT` | Indicates an update in the file's status. |
-| FileEvent | `FILE_UPDATE_EVENT` | Triggered when a file is updated in any manner. |
-| JobEvent | `JOB_CREATE_EVENT` | Triggered when a new job is instantiated for file operations. |
-| JobEvent | `JOB_EXCEEDED_RETRIES_EVENT` | Fires when job exceeds maximum retry attempts for a stage. |
-| JobEvent | `JOB_FAILED_EVENT` | Occurs when a job halts due to an unrecoverable error. |
-| JobEvent | `JOB_FINISHED_EVENT` | Triggered when job successfully completes all workflow stages. |
-| JobEvent | `JOB_INVALID_EVENT` | Fires when job fails initial validation of input files or parameters. |
-| JobEvent | `JOB_RETRY_EVENT` | Triggered when job retries a stage after a recoverable failure. |
-| JobEvent | `JOB_STAGE_UPDATE_EVENT` | Occurs when job transitions from one workflow stage to another. |
-| JobEvent | `JOB_START_EVENT` | Triggered when job begins its workflow and state machine. |
+| `ALFRED_API_KEY` | none | API key. Without it the integration tests are skipped. |
+| `ALFRED_BASE_URL` | `https://app.tagshelf.com` | Alfred environment to call. |
+| `ALFRED_TEST_FILE_ID` | none | A file ID for `test_get_file`. The test is skipped when unset. |
+| `ALFRED_TEST_UPLOAD_FILE` | none | Path of a local file for `test_upload_file`. The test is skipped when unset. |
 
-## Development Setup
+Run one integration test with, for example, `python -m unittest tests.TestMain.test_get_file`.
 
-### Setting up the development environment
+Build the source distribution and wheel into `dist/` with `make build` (it runs `python -m build`). `make test` runs the unit tests and `make clean` removes build output.
 
-To contribute to `alfred-python`, you'll need to set up a Python development environment. We recommend using Conda, a popular package and environment management system. Here’s how to set it up:
+## Contributing
 
-1. **Install Conda**: If you do not have Conda installed, you can download and install it from [Miniconda](https://docs.conda.io/en/latest/miniconda.html) (a minimal installer) or [Anaconda](https://www.anaconda.com/products/distribution) (a full-featured distribution).
+- Pull requests target the `development` branch. `master` holds reviewed releases, which are published from it.
+- Pull request titles are checked for a semantic prefix: `chore`, `docs`, `fix`, `feat`, `misc`, `test` or `release`, for example `fix(files): keep the original file name`.
+- The test suite runs on every pull request. Add or update tests with your change, and update the matching page in `docs/` when behaviour changes.
 
-2. **Create a new Conda environment**: Open your terminal and run the following command to create a new environment named `alfred-python`:
+## License
 
-   ```bash
-   conda create --name alfred-python python=3.8 -y
-   ```
-
-3. **Activate the environment**: Activate the newly created environment by running:
-
-   ```bash
-   conda activate alfred-python
-   ```
-
-4. **Install dependencies**: With the environment activated, install the required dependencies by running:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-This sets up a basic Python environment tailored for development purposes.
-
-### Optional: Setting up a testing environment
-
-For testing and development, it's often useful to install the package in a way that reflects changes in real-time. To do this, you can install the package in editable mode. Here’s how to create a separate environment for testing and install the SDK:
-
-1. **Create a testing environment**: It's a good practice to separate testing and development environments to avoid conflicts. Create a new environment named `alfred-python-test`:
-
-   ```bash
-   conda create --name alfred-python-test python=3.8 -y
-   ```
-
-2. **Activate the testing environment**:
-
-   ```bash
-   conda activate alfred-python-test
-   ```
-
-3. **Install the SDK in editable mode**: Navigate to the root directory of the `alfred-python` project and run:
-
-   ```bash
-   pip install --editable .
-   ```
-
-## Building the Project
-
-To package `alfred-python` into distributable formats such as source archives and wheels, you will need to use the `build` module, a modern tool for building packages that adheres to PEP 517. Follow these steps to build the project:
-
-### Preparing the build environment
-
-Before building the project, ensure that your development environment is activated and up-to-date. If you don’t have an environment set up, please refer to the [Development Setup](#development-setup) section to create and activate one.
-
-### Installing the build Tool
-
-With your environment ready, install the `build` package. This package provides a simple, reliable way to build your project. Install it using pip:
-
-```bash
-pip install -U build
-```
-
-### Running the build process
-
-Once `build` is installed, you can generate the build artifacts by running the following command from the root directory of your project:
-
-```bash
-python -m build
-```
-
-This command will produce a source distribution (`tar.gz`) and a wheel file (`whl`) in the `dist/` directory. These files are what you would upload to a package index like PyPI, or distribute to other developers.
+MIT. See [LICENSE](https://github.com/tagshelfsrl/alfred-python/blob/master/LICENSE).
