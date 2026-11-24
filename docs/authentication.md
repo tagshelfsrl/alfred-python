@@ -76,7 +76,7 @@ auth_config = AuthConfiguration(
 What the client does:
 
 - It requests a token lazily, on the first request, with `POST /token` (form-encoded `grant_type=password`, `username`, `password`), and keeps the token in memory.
-- When a request is answered with `401 Unauthorized`, it discards the token, fetches a new one and resends that request once. If the resent request is also refused, the client does not try to refresh again for as long as that client object lives, so build a new client after fixing the credentials.
+- When a request is answered with `401 Unauthorized`, it discards the token, fetches a new one and resends that request once. If Alfred refuses to issue the token, or refuses the resent request too, the call fails with an authentication error (see [errors.md](errors.md)). The next call starts again from a fresh token request.
 - Alfred's public documentation says tokens typically expire after one month, so most scripts fetch a single token. The SDK does not read the expiry: it fetches a new token only after a `401`.
 
 ## HMAC
@@ -93,7 +93,7 @@ auth_config = AuthConfiguration(
 
 `api_key` must be the base64 text of the user's API key: the SDK base64-decodes it and uses the bytes as the signing key. `secret_key` is sent as the identifier at the start of the `amx` header value and is part of the signed data.
 
-Known limitation in this version of the SDK: HMAC signing fails with an `AttributeError` (`'bytes' object has no attribute 'encode'`) for any request that carries a body. That includes `files.upload`, `files.upload_file` and `jobs.create`. Requests without a body, such as `sessions.create` and the `get` methods, are signed correctly. For anything that uploads or creates, use an API key or OAuth.
+The signature covers the request's method, URL, a timestamp, a one-time value and, when the request has a body, a hash of that body.
 
 ## What each part of the SDK supports
 

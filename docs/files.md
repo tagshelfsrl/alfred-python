@@ -111,7 +111,7 @@ Notes:
 
 - The file is read fully into memory; there is no streaming. Keep that in mind for large files.
 - `original_name` comes from the server and is used as the name you would write to. If you save to disk, sanitise it (it could contain path separators) rather than trusting it blindly.
-- If the response has no `Content-Disposition` header, the call fails with a `TypeError` (`argument of type 'NoneType' is not iterable`). Alfred sets the header for downloads, so this appears only behind a proxy that strips it.
+- If the response carries no file name (no `Content-Disposition` header, or one without a name), `original_name` is `None`. Alfred sets the header for downloads, so this appears only behind a proxy that strips it. When the header carries both a plain and an encoded name, the encoded one is used.
 - A downloaded file whose `Content-Type` is `application/json` or `application/xml` is also run through the SDK's response parser (see [Response types](configuration.md#response-types)), and a file that does not parse as its declared type raises `ValueError`.
 
 Errors worth handling: `404` when the file does not exist (see [errors.md](errors.md)).
@@ -128,8 +128,10 @@ Errors worth handling: `404` when the file does not exist (see [errors.md](error
 | `urls` | `list[str]` | none | URLs of several files (up to 100). |
 | `source` | `str` | none | Name of a connected remote source (cloud storage). Needs `container` and a file name. |
 | `container` | `str` | none | Container (bucket) inside the remote source. |
-| `file_name`, `file_names` | `str`, `list[str]` | none | With `source` and `container`: the name(s) of the file(s) in that container. Not in the SDK's type; see the note below. |
-| `filename`, `filenames` | `str`, `list[str]` | none | Listed by the SDK's type, but the server does not read them (see the note below). |
+| `file_name`, `file_names` | `str`, `list[str]` | none | With `source` and `container`: the name(s) of the file(s) in that container. |
+| `filename`, `filenames` | `str`, `list[str]` | none | Deprecated spellings of `file_name` and `file_names`. The API does not read them, so the SDK sends them under the names above; a value given under the API's own name wins. Use `file_name` and `file_names` in new code. |
+| `channel` | `str` | none | The job's channel, for example `api`. |
+| `correlation_id` | `str` | none | Your own identifier for the operation, at most 512 characters. See [correlation IDs](jobs.md#correlation-ids). |
 | `merge` | `bool` | `false` | Merge all the files into one PDF. Only works when the files are images. |
 | `metadata` | `dict` or `list[dict]` | none | Your own data. Send one object for a single file, or when `merge` or `propagate_metadata` is true. Otherwise send one object per file, in the same order as the URLs. |
 | `propagate_metadata` | `bool` | `false` | Apply the single `metadata` object to every file. |
@@ -167,8 +169,8 @@ print(result["job_id"])
 
 Things to know:
 
-- The result has a `job_id`, not a `file_id`. The `UploadResponse` type in the SDK says `file_id`; that is only right for `upload_file`. To find the files of the job, use [`jobs.get`](jobs.md).
-- The SDK sends your dictionary to the server as is, without validating or filtering it. Fields that the public API accepts but the SDK's type does not list, such as `decompose`, `page_rotation`, `priority`, `channel` and `correlation_id`, are forwarded and work at runtime; a type checker will flag them. See the public [Upload files from URLs](https://docs.tagshelf.dev/endpoints/file) reference for what they do. The cloud-storage file names are sent as `file_name` or `file_names`, which the SDK's type does not list. The type lists `filename` and `filenames` instead; the server source (version 1.130.0) reads only `file_name` and `file_names` for `/api/file/upload`, so `filename` and `filenames` have no effect there. They were not found in the server code for URL uploads either, so do not expect them to rename URL-based files.
+- The result has a `job_id`, not a `file_id` (a `file_id` is what `upload_file` returns). To find the files of the job, use [`jobs.get`](jobs.md).
+- Apart from the two deprecated names above, the SDK sends your dictionary to the server as is, without validating or filtering it. Fields that the public API accepts but the payload type does not list, such as `decompose`, `page_rotation` and `priority`, are forwarded and work at runtime; a type checker will flag them. See the public [Upload files from URLs](https://docs.tagshelf.dev/endpoints/file) reference for what they do.
 - Retries: `upload` is a `POST` and is not retried automatically (see [Retries](configuration.md#retries)). If it fails with a timeout, check the job list before sending again, or you may create the job twice.
 
 #### Password-protected files
@@ -264,7 +266,7 @@ Because the file is rewound, a file you have partly read is still sent in full.
 
 #### Metadata
 
-`metadata` is sent as a JSON string in a form field. Pass a dictionary of your own keys and values. Leaving the key out sends `{}`. Passing `None` explicitly sends the JSON text `null`, so omit the key instead. If you also set `propagate_metadata` on [`jobs.create`](jobs.md), the job's metadata is applied to the files too.
+`metadata` is sent as a JSON string in a form field. Pass a dictionary of your own keys and values. Leaving the key out, or passing `None`, sends `{}`. If you also set `propagate_metadata` on [`jobs.create`](jobs.md), the job's metadata is applied to the files too.
 
 #### Size limit
 
@@ -279,7 +281,6 @@ Alfred refuses an upload that is too large with `413 Payload Too Large`. The pub
 - The channel field that the public API accepts for `uploadfile` is not exposed by `upload_file`.
 - `upload_file` is a `POST` and is not retried automatically. If it times out, the file may or may not have arrived: list or check the session before uploading again.
 - The default request timeout is 5 seconds (see [Timeout](configuration.md#timeout)). Raise it for large files.
-- With HMAC authentication this call fails (see [authentication.md](authentication.md#hmac)). Use an API key or OAuth.
 
 Errors worth handling (see [errors.md](errors.md)): `400` when the session is unknown, closed or expired (the `message` says which; open a new session), `403` when your role may not upload, `409` when your company's storage is not set up, `413` for a file over the limit.
 

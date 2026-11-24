@@ -62,9 +62,9 @@ The real-time client supports API keys only.
 - It reads `auth_config["api_key"]`. It does not fall back to the `ALFRED_API_KEY` environment variable the way the REST client does, so pass the key explicitly.
 - `oauth` and `hmac` settings are ignored.
 - The key is sent in the query string of the connection URL: `<realtime_url>?apiKey=<key>`. The socket library adds its own parameters after it (`transport`, `EIO`, `t`), so the key is visible in the request URL.
-- If `api_key` is missing, the SDK still connects, sending the literal text `apiKey=None`. The server is expected to refuse it; how it refuses (and so what error you see) could not be verified, because the socket server is not part of the REST API source.
+- If `api_key` is missing, the SDK still tries to connect, sending the literal text `apiKey=None`, and the server refuses the connection (see [The server refuses the key](#the-server-refuses-the-key)).
 
-Because the key is in a URL, it can appear in proxy and server logs, and in the SDK's own connection error messages (see [Failure modes](#failure-modes)). Use a key meant for this purpose and keep error messages out of shared logs.
+Because the key is in a URL, it can appear in proxy and server logs. The SDK keeps it out of its own connection errors (see [Failure modes](#failure-modes)). Use a key meant for this purpose.
 
 ```python
 import os
@@ -93,7 +93,7 @@ A function without parameters, called each time a connection is established, on 
 
 ### `error_callback`
 
-A function with one parameter, called with the error text when an attempt to connect fails: the initial attempt in the constructor, and every failed reconnection attempt afterwards. The argument is the error message, a string (or whatever the server sent with a refusal). The message can contain the connection URL, and so the API key.
+A function with one parameter, called with the error text when an attempt to connect fails: the initial attempt in the constructor, and every failed reconnection attempt afterwards. The argument is the error message, a string (or whatever the server sent with a refusal). The SDK removes the API key from that text before calling you.
 
 ```python
 import os
@@ -153,17 +153,25 @@ realtime_client.on_file_event(handle_file_event)
 
 ### `on`
 
-`realtime_client.on(event, callback)` subscribes to one specific event, to receive only that event. `event` is the event's name, a string. The members of `alfred.base.constants.JobEvent` and `FileEvent` hold these names in their `.value`, so use `.value`:
+`realtime_client.on(event, callback)` subscribes to a socket event by its name. The Alfred socket server sends exactly two event names, `job_event` and `file_event` (the values of `alfred.base.constants.EventType`), so `on("job_event", callback)` is the same subscription as `on_job_event(callback)`.
+
+There is no per-event subscription on the server. Every job event arrives as `job_event` and every file event as `file_event`; what happened is in the `event_name` field of the data, for example `alfred_event_job_finished`. To react to one kind of event, subscribe to the stream and test `event_name`:
 
 ```python
-from alfred.base.constants import FileEvent, JobEvent
+def handle_job_event(data):
+    name = data.get("event_name")
+    if name == "alfred_event_job_finished":
+        print("finished:", data["job_id"])
+    elif name == "alfred_event_job_failed":
+        print("failed:", data["job_id"], data.get("error_messages"))
 
-realtime_client.on(JobEvent.JOB_FINISHED_EVENT.value, lambda data: print("finished", data))
-realtime_client.on(FileEvent.FILE_DONE_EVENT.value, lambda data: print("file done", data))
-realtime_client.on("job_failed_event", lambda data: print("failed", data))  # the same name as a plain string
+
+realtime_client.on_job_event(handle_job_event)
 ```
 
-Whether the server sends each event under its own name, under `job_event` / `file_event`, or both could not be verified from the code available: the SDK only registers handlers for those names. The previous README stated that both kinds work. If a specific event never arrives, try `on_job_event` or `on_file_event` and look at the `event_name` field in the data.
+The members of `JobEvent` and `FileEvent` in `alfred.base.constants` (`job_finished_event`, `file_done_event` and so on) are not names the server sends, neither as socket events nor in `event_name`. A callback registered with one of them, as earlier versions of the README showed, is never called. Use the two streams and the `event_name` values in the [event catalogue](#event-catalogue).
+
+Alfred also publishes `bulk_task_event` for bulk operations. The SDK has no helper for it; `on("bulk_task_event", callback)` subscribes to it.
 
 ### Register callbacks early
 
@@ -171,102 +179,87 @@ The socket connects in the constructor, so there is a short window before your `
 
 ## Event catalogue
 
-The SDK defines two enums in `alfred.base.constants`, `JobEvent` (8 members) and `FileEvent` (16 members), and a third, `EventType`, for the two catch-all streams:
+The socket server forwards the events Alfred publishes, to the account the API key belongs to and to no one else. Each one arrives as a `job_event` or a `file_event`, and your callback receives the event's fields as a dictionary. The SDK passes that dictionary on unchanged. The names and fields below are those of Alfred 1.130.0.
 
-| `EventType` member | Value | Subscribed with | Receives |
-| --- | --- | --- | --- |
-| `JOB_EVENT` | `job_event` | `on_job_event` | all job events |
-| `FILE_EVENT` | `file_event` | `on_file_event` | all file events |
+Fields every event has:
 
-The "wire value" below is the string you pass to `on(...)`, `Enum.value`.
+| Field | Meaning |
+| --- | --- |
+| `event_name` | What happened, for example `alfred_event_job_finished`. |
+| `company_id`, `company_name` | The account the event belongs to. |
+| `timestamp` | Present on every event. Use `update_date` when you need to order events. |
 
-### Job events
-
-A job is one unit of work with one or more files.
-
-| `JobEvent` member | Wire value | When it fires |
-| --- | --- | --- |
-| `JOB_CREATE_EVENT` | `job_create_event` | A new job is created for a file or set of files. |
-| `JOB_START_EVENT` | `job_start_event` | The job begins its workflow. |
-| `JOB_STAGE_UPDATE_EVENT` | `job_stage_update_event` | The job moves from one stage to the next. |
-| `JOB_RETRY_EVENT` | `job_retry_event` | The job retries its current stage after a recoverable failure. |
-| `JOB_EXCEEDED_RETRIES_EVENT` | `job_exceeded_retries_event` | The job has used up its retries for a stage. |
-| `JOB_FAILED_EVENT` | `job_failed_event` | The job stops because of an error it cannot recover from. |
-| `JOB_INVALID_EVENT` | `job_invalid_event` | The job fails its first validation, for example an unsupported file type or missing input. |
-| `JOB_FINISHED_EVENT` | `job_finished_event` | The job completed all its stages successfully. |
-
-### File events
-
-| `FileEvent` member | Wire value | When it fires |
-| --- | --- | --- |
-| `FILE_ADD_TO_JOB_EVENT` | `file_add_to_job_event` | A file is uploaded and linked to a job. |
-| `FILE_STATUS_UPDATE_EVENT` | `file_status_update_event` | The file's status changes. |
-| `FILE_UPDATE_EVENT` | `file_update_event` | The file's classification status changes, automatically or by a person. |
-| `FILE_DONE_EVENT` | `file_done_event` | The file completed every stage of its pipeline. |
-| `FILE_FAILED_EVENT` | `file_failed_event` | The file failed a stage of its pipeline. The payload names the reason. |
-| `FILE_CATEGORY_CREATE_EVENT` | `file_category_create_event` | A tag (document type) was assigned to the file. |
-| `FILE_CATEGORY_DELETE_EVENT` | `file_category_delete_event` | The file was not given a tag. It is not classified or indexed, and no data points are extracted. |
-| `FILE_CHANGE_TAG_EVENT` | `file_change_tag_event` | The file's tag changed, by the pipeline or by a human validator. |
-| `FILE_REMOVE_TAG_EVENT` | `file_remove_tag_event` | The file's tag was removed. |
-| `FILE_EXTRACTED_DATA_CREATE_EVENT` | `file_extracted_data_create_event` | Content was extracted from the file. |
-| `FILE_EXTRACTED_DATA_DELETE_EVENT` | `file_extracted_data_delete_event` | The extracted content of the file was deleted. |
-| `FILE_PROPERTY_CREATE_EVENT` | `file_property_create_event` | A property was created for the file (its binary information was updated). |
-| `FILE_PROPERTY_DELETE_EVENT` | `file_property_delete_event` | A property of the file was deleted. |
-| `FILE_MOVE_EVENT` | `file_move_event` | The file's location changed, for example when it is classified, fails classification or its pipeline fails. |
-| `FILE_MOVE_TO_PENDING_EVENT` | `file_move_to_pending_event` | The file's status became Pending: it has not completed its pipeline. |
-| `FILE_MOVE_TO_RECYCLE_BIN_EVENT` | `file_move_to_recycle_bin_event` | The file was moved to the recycle bin. |
-
-### Payload fields
-
-The payload fields below come from the public Event API pages (<https://docs.tagshelf.dev/event-api>). Those pages describe the events as webhook deliveries, wrapped in an envelope:
+A job that has just finished arrives like this:
 
 ```json
 {
-  "event_id": "UUID of the event",
-  "event_type": "job_event_type or file_event_type",
-  "event_time": "Unix timestamp",
-  "event": { "event_name": "job_finished_event", "event_type": "job_event_type", "job_id": "..." }
+  "event_name": "alfred_event_job_finished",
+  "timestamp": "2026-11-24T10:01:00Z",
+  "company_id": "286e2ed0-3626-4faa-a745-8ebf3488fbd7",
+  "company_name": "Example Corp",
+  "job_id": "7a1d5c3e-9b2f-4e8a-8c61-3f2b9d0e4a17",
+  "correlation_id": "erp:invoice:INV-1042",
+  "creation_date": "2026-11-24T10:00:00Z",
+  "update_date": "2026-11-24T10:01:00Z"
 }
 ```
 
-Whether the socket delivers the same envelope, or only the inner `event` object, could not be verified: the socket server is not in the sources available. The SDK does not change the data; it passes your callback whatever the server sent. Write callbacks that accept both, as the worked example does: `fields = data.get("event", data)`.
+Things to know about the data:
 
-Every event in the public documentation carries `event_name`, `event_type`, `company_id` and `company_name`. Most also carry `creation_date` and `update_date` (ISO 8601). The fields specific to each event:
+- Field names are snake_case. Unlike the REST API, a field without a value is sent as `null` rather than left out.
+- The socket delivers the event's fields directly. The outer envelope that webhook deliveries carry (`event_id`, `event_type`, `event_time`, with the fields under `event`) is not included.
+- Dates are ISO 8601. `creation_date` and `update_date` are those of the job or file the event is about.
+- `stage` and `file_status` hold the same values as the REST API; the job stages are listed in [jobs.md](jobs.md).
 
-| Wire value | Specific fields |
-| --- | --- |
-| `job_create_event` | `job_id`, `user_name`, `merge`, `metadata`, `file_count`, `file_urls` |
-| `job_start_event` | `job_id` |
-| `job_stage_update_event` | `job_id`, `stage` |
-| `job_retry_event` | `job_id`, `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
-| `job_exceeded_retries_event` | `job_id`, `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
-| `job_failed_event` | `job_id`, `retries`, `exceeded_retries`, `error_messages` |
-| `job_invalid_event` | `job_id`, `retries`, `exceeded_retries`, `error_messages` |
-| `job_finished_event` | `job_id` |
-| `file_add_to_job_event` | `file_id`, `job_id` (no dates) |
-| `file_status_update_event` | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `manual_classification`, `classification_score`, `classification_status`, `file_status` |
-| `file_update_event` | `file_id`, `file_log_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
-| `file_done_event` | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `file_status` |
-| `file_failed_event` | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `classification_score`, `classification_status`, `file_status`, `error_messages` |
-| `file_category_create_event` | `file_log_id`, `description` (the tag), `confidence` |
-| `file_category_delete_event` | `file_log_id`, `description`, `confidence` |
-| `file_change_tag_event` | `file_id`, `previous_tag_id`, `previous_tag_name`, `proposed_tag_id`, `classification_score`, `new_tag_id`, `new_tag_name` (no dates) |
-| `file_remove_tag_event` | `file_id`, `tag_being_removed_id`, `tag_being_removed_name`, `classification_score` (no dates) |
-| `file_extracted_data_create_event` | `file_log_id`, `content`, `provider` |
-| `file_extracted_data_delete_event` | `file_log_id`, `content`, `provider` |
-| `file_property_create_event` | `file_log_id`, `name`, `value` |
-| `file_property_delete_event` | `file_log_id`, `name`, `value` |
-| `file_move_event` | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url`, `previous_file_directory`, `new_file_directory` |
-| `file_move_to_pending_event` | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
-| `file_move_to_recycle_bin_event` | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+### Job events
 
-Notes on the public pages, which are documentation of webhook events and not of this client:
+All of these arrive as `job_event`. Every one carries `job_id` and `correlation_id` (the job's correlation ID, `null` when it has none; see [jobs.md](jobs.md#correlation-ids)), plus `creation_date` and `update_date`.
 
-- Some examples on the public pages carry a different `event_name` than the page's event: the add-to-job example shows `file_added_to_job_event` (the SDK's value is `file_add_to_job_event`), the remove-tag example shows `file_change_tag_event`, and the exceeded-retries example shows `job_retry_event`. Treat the SDK's wire values in the tables above as the names to subscribe to.
-- The public examples show `event_type` values `job_event_type` and `file_event_type`, which differ from the `job_event` and `file_event` names the SDK subscribes to. How they relate could not be verified.
-- Field types in the public pages are written as descriptions, and some examples hold strings where the description says a number or boolean (`retries`, `exceeded_retries`, `confidence`). Convert defensively.
-- The server's job-correlation documentation says job events (create, start, stage update, finish, failure, invalidation, retry and others) also expose the job's `correlation_id`, beside `job_id`. Whether it reaches socket payloads was not verified.
-- The `stage` values of `job_stage_update_event` are the job stages listed in [jobs.md](jobs.md).
+| `event_name` | When Alfred sends it | Other fields |
+| --- | --- | --- |
+| `alfred_event_job_create` | A job is created. | `user_name`, `merge`, `metadata`, `file_count`, `file_urls` |
+| `alfred_event_job_start` | The job begins processing. | |
+| `alfred_event_job_stage_update` | The job moves to another stage. | `stage` |
+| `alfred_event_job_retry` | The job retries a stage after a failure it can recover from. The same name is sent when the job has used up its retries: `exceeded_retries` tells the two apart. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |
+| `alfred_event_job_invalid` | The job fails the validation of its input. | `retries`, `exceeded_retries`, `error_messages`, `has_broken_input_sources` |
+| `alfred_event_job_failed` | The job stops on an error it cannot recover from. | `retries`, `exceeded_retries`, `error_messages` |
+| `alfred_event_job_cancelled` | The job is cancelled. | `cancellation_reason`, `error_messages` |
+| `alfred_event_job_expired` | The job expires before it finishes. | `previous_stage`, `attempt_started_at`, `expiration_days` |
+| `alfred_event_job_finished` | The job completes all its stages. | |
+
+A job is over after `alfred_event_job_finished`, `alfred_event_job_failed`, `alfred_event_job_invalid`, `alfred_event_job_cancelled` or `alfred_event_job_expired`.
+
+### File events
+
+All of these arrive as `file_event`. Unless noted, each carries `job_id`, `creation_date` and `update_date`.
+
+| `event_name` | When Alfred sends it | Other fields |
+| --- | --- | --- |
+| `alfred_event_file_create` | A file is created in Alfred. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_added_to_job` | A file is linked to a job. | `file_id` (no dates) |
+| `alfred_event_file_update` | The file's record is updated. | `file_id`, `file_log_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_status_update` | The file's status changes. | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `manual_classification`, `classification_score`, `classification_status`, `file_status` |
+| `alfred_event_file_change_tag` | The file's tag (document type) changes. | `file_id`, `previous_tag_id`, `previous_tag_name`, `proposed_tag_id`, `classification_score`, `new_tag_id`, `new_tag_name` (no dates) |
+| `alfred_event_file_change_tag` | The file's tag is removed. It has the same name as a tag change and different fields. | `file_id`, `tag_being_removed_id`, `tag_being_removed_name`, `classification_score` (no dates) |
+| `alfred_event_file_category_create` | A category is recorded for the file. | `file_log_id`, `description`, `confidence` |
+| `alfred_event_file_category_delete` | A category of the file is deleted. | `file_log_id`, `description`, `confidence` |
+| `alfred_event_file_extracted_data_create` | Content extracted from the file is stored. | `file_log_id`, `content`, `provider` |
+| `alfred_event_file_extracted_data_delete` | Extracted content of the file is deleted. | `file_log_id`, `content`, `provider` |
+| `alfred_event_file_property_create` | A property of the file is created. | `file_log_id`, `name`, `value` |
+| `alfred_event_file_property_delete` | A property of the file is deleted. | `file_log_id`, `name`, `value` |
+| `alfred_event_file_move` | The file moves to another location. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url`, `previous_file_directory`, `new_file_directory` |
+| `alfred_event_file_move_to_pending` | The file is moved to pending. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_move_to_recycle_bin` | The file is moved to the recycle bin. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_move_to_decomposed` | A file that was split into documents is moved aside. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` |
+| `alfred_event_file_decomposed` | A file was split into its documents. | `file_id`, `file_name`, `file_name_without_extension`, `blob_name`, `blob_url` (no `job_id`) |
+| `alfred_event_file_failed` | The file fails a stage of its pipeline. | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `classification_score`, `classification_status`, `file_status`, `error_messages` |
+| `alfred_event_file_done` | The file completes its pipeline. | `file_id`, `blob_name`, `blob_url`, `tag_id`, `tag_name`, `file_status` |
+
+The events that identify the file by `file_log_id` do not carry `file_id`.
+
+### Names in the public Event API pages
+
+The public pages at <https://docs.tagshelf.dev/event-api> describe the same events as webhook deliveries, and their examples use other spellings: `job_finished_event` where the socket sends `alfred_event_job_finished`, and `job_event_type` where it sends `job_event`. The names in the tables above are the ones this client receives.
 
 ## Verbose mode and logging
 
@@ -281,7 +274,7 @@ The SDK logs through the `alfred-python` logger (see [configuration.md](configur
 | `Connection error:  <error>` | ERROR | Only with `verbose=True`, when a connection attempt fails. |
 | `Closing connection...` | INFO | Every time `disconnect()` runs, which includes each failed connection attempt (see below). |
 
-Verbose mode logs the full event data, which includes document content for some events (`content` in `file_extracted_data_create_event`). Do not enable it where logs are shared. Because the logger is shared with the REST client, `verbose=True` also turns on the REST client's DEBUG request logging when the real-time client was the one that configured the logger.
+Verbose mode logs the full event data, which includes document content for some events (`content` in `alfred_event_file_extracted_data_create`). Do not enable it where logs are shared. Because the logger is shared with the REST client, `verbose=True` also turns on the REST client's DEBUG request logging when the real-time client was the one that configured the logger.
 
 ## Keeping the script alive
 
@@ -330,12 +323,12 @@ So:
 
 - Do not do slow or blocking work in a callback; hand it to a queue or a thread pool.
 - Protect shared state with a lock, or pass work through `queue.Queue` or `threading.Event`.
-- Do not assume `job_stage_update_event` callbacks run in the order the stages happened. Use the `update_date` field if order matters.
+- Do not assume `alfred_event_job_stage_update` events are handled in the order the stages happened. Use the `update_date` field if order matters.
 - Catch exceptions inside callbacks if you want to log them.
 
 ## Worked example
 
-Submit a job with the REST client, wait for its `job_finished_event` or `job_failed_event`, and fall back to polling if nothing arrives. The callbacks are registered before the job is created, and they ignore events of other jobs.
+Submit a job with the REST client, wait for the event that ends it, and fall back to polling if nothing arrives. The callback is registered before the job is created, and it ignores the events of other jobs.
 
 ```python
 import os
@@ -343,7 +336,6 @@ import threading
 import time
 
 from alfred.base.config import Configuration
-from alfred.base.constants import JobEvent
 from alfred.http.typed import AuthConfiguration
 from alfred.realtime import AlfredRealTimeClient
 from alfred.rest import AlfredClient
@@ -354,6 +346,14 @@ auth_config = AuthConfiguration({"api_key": api_key})
 
 client = AlfredClient(config=config, auth_config=auth_config)
 
+# The events after which a job does no more work, and the stages that match them.
+ENDED = {
+    "alfred_event_job_finished": "finished",
+    "alfred_event_job_failed": "failed",
+    "alfred_event_job_invalid": "invalid",
+    "alfred_event_job_cancelled": "cancelled",
+    "alfred_event_job_expired": "expired",
+}
 STOPPED = {"completed", "failed", "invalid", "canceled", "expired"}  # see jobs.md
 
 job_id = None
@@ -362,37 +362,26 @@ done = threading.Event()
 lock = threading.Lock()
 
 
-def fields_of(data):
-    # The public Event API wraps the fields in {"event": {...}}; accept both shapes.
-    if isinstance(data, dict):
-        return data.get("event", data)
-    return {}
-
-
-def finished(data):
-    event = fields_of(data)
+def handle_job_event(data):
+    if not isinstance(data, dict):
+        return
+    result = ENDED.get(data.get("event_name"))
     with lock:
-        if event.get("job_id") == job_id:
-            outcome["result"] = "finished"
-            done.set()
-
-
-def failed(data):
-    event = fields_of(data)
-    with lock:
-        if event.get("job_id") == job_id:
-            outcome["result"] = "failed"
-            outcome["errors"] = event.get("error_messages")
-            done.set()
+        if result is None or job_id is None:
+            return
+        if str(data.get("job_id", "")).lower() != job_id.lower():
+            return
+        outcome["result"] = result
+        outcome["errors"] = data.get("error_messages")
+        done.set()
 
 
 def connection_failed(error):
-    print("connection attempt failed")  # the message can contain the API key: do not log it
+    print("connection attempt failed:", error)
 
 
 realtime_client = AlfredRealTimeClient(config, auth_config, error_callback=connection_failed)
-realtime_client.on(JobEvent.JOB_FINISHED_EVENT.value, finished)
-realtime_client.on(JobEvent.JOB_FAILED_EVENT.value, failed)
+realtime_client.on_job_event(handle_job_event)
 
 try:
     session_id = client.sessions.create()["session_id"]
@@ -420,8 +409,8 @@ finally:
 
 Points to notice:
 
-- `job_id` is set under the lock after `jobs.create` returns. A very fast event for that job arriving between creation and assignment would be ignored, which is why the loop also checks the job with `jobs.get` every 30 seconds. That check also covers events lost to a dropped connection: when it finds the job in a stopped stage, it ends the wait with the stage as the result. `STOPPED` is the set of stages after which a job does no more work; confirm it against [jobs.md](jobs.md).
-- `finished` and `failed` run on socket threads, and only set a flag; the work stays on the main thread.
+- `job_id` is set under the lock after `jobs.create` returns. An event for that job arriving between creation and assignment is ignored, which is why the loop also checks the job with `jobs.get` every 30 seconds. That check also covers events lost to a dropped connection: when it finds the job in a stopped stage, it ends the wait with the stage as the result. `STOPPED` is the set of stages after which a job does no more work; see [jobs.md](jobs.md).
+- `handle_job_event` runs on a socket thread and only records the result; the work stays on the main thread.
 - `disconnect()` is in `finally`.
 
 ## Failure modes
@@ -447,7 +436,7 @@ except AlfredConnectionError:
     print("could not connect; fall back to polling")
 ```
 
-The exception message contains the request URL, which includes `apiKey=<key>`. Do not log it as is. There is more on the exception classes in [errors.md](errors.md).
+The transport's own error quotes the connection URL, which includes `apiKey=<key>`. The SDK replaces the key with `[redacted]` in the exception message, in the text it passes to `error_callback` and in its own log lines, and it does not chain the original exception. Anything else that records the URL, such as a proxy or the socket library's own debug logging, can still show the key. There is more on the exception classes in [errors.md](errors.md).
 
 `alfred.exceptions.ConnectionError` is not the built-in `ConnectionError`; import it under another name as above to avoid confusion.
 
@@ -464,27 +453,27 @@ Details specific to this SDK:
 - Every failed reconnection attempt runs the SDK's connection-error handler, which logs the error (with `verbose=True`), calls `disconnect()` (logging `Closing connection...`) and calls your `error_callback` with the error. This does not stop the reconnection: the socket library keeps retrying. So `error_callback` is a "this attempt failed" signal, not a "gave up" one. Count failures in it if you want to alert after a number of them.
 - `disconnect()` called while an outage is being retried does not cancel the retry loop, and the client reconnects when the server returns. To stop for good during an outage, end the process: the socket threads do not keep it alive.
 - There is no "reconnected" callback other than `on_connect`.
-- Events emitted while you were disconnected are not replayed by the client. Whether the server buffers them could not be verified. After a reconnection, read the current state with the REST client (`jobs.get`, `files.get`).
+- Events sent while you were disconnected are not replayed, by the client or by the server. After a reconnection, read the current state with the REST client (`jobs.get`, `files.get`).
 
 ### The server refuses the key
 
-Behaviour of the real Alfred socket server when it refuses an API key could not be tested, because that needs a real key and the server is not part of the available sources. By the SDK's code, the result is the same as other connection failures: `error_callback`, then `alfred.exceptions.ConnectionError` from the constructor.
+The socket server checks the key when the client connects: it reads `apiKey` from the connection URL and asks Alfred which account the key belongs to. Without a key, or with one Alfred does not accept, it refuses the connection. For your code the result is the same as other connection failures: `error_callback`, then `alfred.exceptions.ConnectionError` from the constructor.
 
 ## Limitations
 
 - Credentials: API key only, sent in the URL's query string.
-- No event filtering on the client beyond the name; filter by `job_id` or `file_id` in your callback.
-- One callback per event name (a new registration replaces the old one), and no way to remove one other than replacing it.
+- Two streams only, `job_event` and `file_event`: the server has no per-event subscription, so filter by `event_name`, `job_id` or `file_id` in your callback. The `JobEvent` and `FileEvent` enums do not hold names the server sends.
+- One callback per stream (a new registration replaces the old one), and no way to remove one other than replacing it.
 - No replay of missed events, and no reconnection hook beyond `on_connect`.
 - Callbacks are concurrent and unordered (see [Threading](#threading)).
 - `disconnect()` does not cancel a reconnection in progress.
 - The client connects in its constructor and cannot be re-created cheaply; to reconnect after `disconnect()`, build a new `AlfredRealTimeClient`.
-- Payload structure is documented from the public webhook pages and was not verified against the socket server.
+- Events reach only the account the API key belongs to.
 
 ## See also
 
 - [Jobs](jobs.md): job stages, creating and reading jobs
-- [Files](files.md) and [Data points](data-points.md): read results after `file_done_event`
+- [Files](files.md) and [Data points](data-points.md): read results after `alfred_event_file_done`
 - [Authentication](authentication.md)
 - [Configuration](configuration.md): `realtime_url` and logging
 - [Error handling](errors.md)

@@ -50,7 +50,7 @@ config = Configuration.v1(
 print(config["base_url"], config["realtime_url"])
 ```
 
-The `OverridesDict` type only declares `base_url`, so a type checker flags `realtime_url`. The code reads both keys, and both work at runtime.
+Both keys are optional; leave one out to keep its default.
 
 If `config["version"]` is anything other than `1`, the error is raised when you first read a domain property (for example `client.files`), not when you build the client.
 
@@ -76,7 +76,7 @@ print(client.http_client.timeout, client.http_client.max_retries)
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `timeout` | number (seconds) | `5` | Timeout for each HTTP request. Must be greater than zero. |
-| `max_retries` | integer | `3` | Maximum retries per request. Must be greater than zero, so retries cannot be turned off. |
+| `max_retries` | integer | `3` | Maximum retries per request. `0` turns retries off; a negative value is refused. |
 | `pool_connections` | boolean | `True` | `True` uses a connection pool (10 pools of up to `min(32, cpu_count + 4)` connections each). `False` uses a single connection. |
 | `response_type` | `ResponseType` | `ResponseType.JSON` | The format the client asks for. See [Response types](#response-types). |
 | `throttle_delay` | number (seconds) | `1` | How long to sleep before a request when the client decides to throttle. |
@@ -90,7 +90,7 @@ The default timeout is 5 seconds. It is passed to `requests` as a single number,
 
 ### Retries
 
-Failed requests are retried with a back-off (`backoff_factor` 1, so the waits grow from about a second) when the server answers `429`, `500`, `502`, `503` or `504`. The retry rules come from `urllib3` and apply to its idempotent methods only: `GET`, `PUT`, `DELETE`, `HEAD`, `OPTIONS` and `TRACE`. `POST` requests (session creation, job creation, both upload methods) are not retried after the server has answered. That avoids duplicate sessions, files and jobs, but it means you must decide what to do when a `POST` fails: see [errors.md](errors.md).
+Failed requests are retried with a back-off (`backoff_factor` 1, so the waits grow from about a second) when the server answers `429`, `500`, `502`, `503` or `504`. The retry rules come from `urllib3` and apply to its idempotent methods only: `GET`, `PUT`, `DELETE`, `HEAD`, `OPTIONS` and `TRACE`. `POST` requests (session creation, job creation, both upload methods) are not retried after the server has answered. That avoids duplicate sessions, files and jobs, but it means you must decide what to do when a `POST` fails. [errors.md](errors.md) has the complete retry rules, the error raised when retries run out, and the `retry_backoff_factor` setting.
 
 ### Throttling
 
@@ -98,7 +98,7 @@ Alfred allows each client 2,500 requests per minute per endpoint and reports the
 
 Before each request, if `remaining` is at or below `throttle_threshold` percent of `limit`, the client logs a warning and sleeps for `throttle_delay` seconds. When `remaining` reaches zero, the delay doubles on every request, up to 60 seconds, and returns to the configured value as soon as the allowance recovers.
 
-Sharp edge: a response without the rate-limit headers is treated as `limit` 0 and `remaining` 0, which throttles the next request. Alfred sends the headers on authenticated responses, so you only see this when the SDK talks to something else, such as a proxy that strips them or a test double. Set `throttle_threshold` to `0` in that case.
+A response without the rate-limit headers, or with values that are not numbers, means the allowance is unknown: `rate_limit` is `None` and the client does not throttle until a response reports it again.
 
 ```python
 from alfred.base.config import Configuration

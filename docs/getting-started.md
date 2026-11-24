@@ -101,7 +101,7 @@ while True:
 
 `STOPPED` lists the stages after which the job does no more work. The authoritative list of stages and what each means is in [jobs.md](jobs.md); check it before relying on this set.
 
-Polling costs a request per check and counts against your rate limit, so keep the interval at a few seconds or more. The better option is the real-time client, which pushes a `job_finished_event` or `job_failed_event` the moment the job ends, with no polling. See [realtime.md](realtime.md), which has a complete example of submitting a job and waiting for the event.
+Polling costs a request per check and counts against your rate limit, so keep the interval at a few seconds or more. The better option is the real-time client, which tells you the moment the job ends (`alfred_event_job_finished`, `alfred_event_job_failed` and the other closing events), with no polling. See [realtime.md](realtime.md), which has a complete example of submitting a job and waiting for the event.
 
 ### 5. Read the file details
 
