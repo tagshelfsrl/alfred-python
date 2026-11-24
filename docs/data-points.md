@@ -37,7 +37,7 @@ Returns a list of dictionaries, one per data point of the file's tag (the type i
 | `value` | string | The value, after any formatting configured for the data point. An empty string when nothing was extracted. |
 | `classification_score` | number | How sure Alfred is of this value, from 0 to 1. See [Confidence](#confidence). |
 | `extracted_value` | string | Optional. The extractor's original output, present only when formatting changed it. See [Formatting and normalisation](#formatting-and-normalisation). |
-| `normalized_value` | string | Optional. The value after type normalisation, when one was computed. |
+| `normalized_value` | string | Optional. The value after type normalisation. Alfred may leave it out, so read it with `.get()`; when it is sent for a data point without a value, it is an empty string. |
 | `validation` | object or list | Optional. What the data point's validators found for this value. Present only when validation ran. See [Validation results](#validation-results). |
 
 The first seven fields are always there. The three optional ones are left out when there is nothing to report, so read them with `.get()`.
@@ -51,7 +51,7 @@ by_key = {item["field_key"]: item["value"] for item in values}
 print(by_key.get("total"))
 ```
 
-Example response, with one value that has nothing more to report and one that was formatted and validated:
+Example response, with one value as production usually sends it and one that was also formatted and validated:
 
 ```json
 [
@@ -62,7 +62,8 @@ Example response, with one value that has nothing more to report and one that wa
     "metadata_name": "Total",
     "field_key": "total",
     "value": "123.45",
-    "classification_score": 0.93
+    "classification_score": 0.93,
+    "normalized_value": "123.45"
   },
   {
     "id": "6c1e2d63-4b5f-4b72-8e1f-1d8f1b0e22bb",
@@ -114,20 +115,21 @@ Values are strings, whatever the data point's type.
 
 `classification_score` is how sure Alfred's extractor was of this value, from 0 to 1. The name is historical: it is about the value, not about the file's classification, whose score is the `classification_score` of [`files.get`](files.md#get).
 
-- Alfred 1.117.0 and later ask the extractor for its confidence on every value. Values extracted by an earlier version carry a placeholder instead, so do not compare old files with new ones.
-- A score of `0` or `0.01` is that placeholder: the extractor reported no confidence. Read it as "unknown", not as "1% sure".
-- The API returns the number as it is. What counts as too low for your process is yours to decide.
+- A data point Alfred did not find in the document comes back with an empty `value` and a score of `0`. In a run against production on Alfred 1.130.0, a value copied from the document scored `1.0` and the data points the document did not have scored `0.0`.
+- Alfred 1.117.0 and later ask the extractor for its confidence on every value. Values extracted by an earlier version carry a placeholder instead (`0` or `0.01`), which says nothing about the value, so do not compare old files with new ones.
+- The API returns the number as it is. What counts as too low for your process is yours to decide. Check for an empty `value` first: a low score on a value that is not there is not a doubt about it.
 
 ```python
 REVIEW_BELOW = 0.8  # your own threshold
 
 values = client.data_points.get_values("559167cb-4c76-4e28-bf15-34cbf614119c") or []
+missing = [item["field_key"] for item in values if not item["value"]]
 to_review = [
     item["field_key"]
     for item in values
-    if item["classification_score"] < REVIEW_BELOW
+    if item["value"] and item["classification_score"] < REVIEW_BELOW
 ]
-print(to_review)
+print(missing, to_review)
 ```
 
 #### Formatting and normalisation
@@ -136,7 +138,7 @@ A data point can have formatters, rules that rewrite what the extractor read: ch
 
 - `value` is the result after the formatters ran. This is the field to use.
 - `extracted_value` is what the extractor read, and it is present only when a formatter changed it. When it is absent, `value` is what the extractor read.
-- `normalized_value` is the value in the standard form of the data point's type, when Alfred computed one.
+- `normalized_value` is the value in the standard form of the data point's type. It is optional like the other two: production sent it on every row of a test file (as an empty string where there was no value), but the API leaves it out when it has none, so do not index it directly.
 
 #### Validation results
 

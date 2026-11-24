@@ -222,7 +222,8 @@ Fields every event has:
 | Field | Meaning |
 | --- | --- |
 | `event_name` | What happened, for example `alfred_event_job_finished`. |
-| `company_id`, `company_name` | The account the event belongs to. |
+| `company_id` | The account the event belongs to. |
+| `company_name` | The account's name. `alfred_event_job_create` can arrive without it. |
 | `timestamp` | Present on every event. Use `update_date` when you need to order events. |
 
 A job that has just finished arrives like this:
@@ -242,18 +243,18 @@ A job that has just finished arrives like this:
 
 Things to know about the data:
 
-- Field names are snake_case. Unlike the REST API, a field without a value is sent as `null` rather than left out.
+- Field names are snake_case. A field without a value is left out: `alfred_event_job_create`, for example, arrives without `metadata` when the job has none. Read optional fields with `.get()`.
 - The socket delivers the event's fields directly. The outer envelope that webhook deliveries carry (`event_id`, `event_type`, `event_time`, with the fields under `event`) is not included.
 - Dates are ISO 8601. `creation_date` and `update_date` are those of the job or file the event is about.
 - `stage` and `file_status` hold the same values as the REST API; the job stages are listed in [jobs.md](jobs.md).
 
 ### Job events
 
-All of these arrive as `job_event`. Every one carries `job_id` and `correlation_id` (the job's correlation ID, `null` when it has none; see [jobs.md](jobs.md#correlation-ids)), plus `creation_date` and `update_date`.
+All of these arrive as `job_event`. Every one carries `job_id`, `creation_date` and `update_date`, and `correlation_id` when the job has one (see [jobs.md](jobs.md#correlation-ids)).
 
 | `event_name` | When Alfred sends it | Other fields |
 | --- | --- | --- |
-| `alfred_event_job_create` | A job is created. | `user_name`, `merge`, `metadata`, `file_count`, `file_urls` |
+| `alfred_event_job_create` | A job is created. | `user_name`, `merge`, `file_count`, `file_urls`, and `metadata` when the job has some |
 | `alfred_event_job_start` | The job begins processing. | |
 | `alfred_event_job_stage_update` | The job moves to another stage. | `stage` |
 | `alfred_event_job_retry` | The job has failed and used up its retries. It follows `alfred_event_job_failed`, with `exceeded_retries` set to `true`. Despite the name, Alfred 1.130.0 does not send it when a job is retried. `JobEvent.JOB_EXCEEDED_RETRIES_EVENT` subscribes to exactly this case. | `user_name`, `merge`, `metadata`, `file_count`, `retries`, `exceeded_retries`, `error_messages`, `file_urls` |

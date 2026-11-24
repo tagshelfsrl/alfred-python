@@ -62,9 +62,11 @@ class _FileDetailsRequired(TypedDict):
     update_date: str
     file_name: str
     file_name_without_extension: str
-    # Size in bytes. `file_size` holds the same number.
-    size: int
+    # Size in bytes.
     file_size: int
+    # Also described as the size in bytes, but observed as 0 on production
+    # (Alfred 1.130.0). Use `file_size`.
+    size: int
     blob_name: str
     blob_url: str
     user_name: str
@@ -99,6 +101,10 @@ class _FileDetailsRequired(TypedDict):
     page_number: int
     job_order_index: int
     company_id: str
+    # The metadata attached to the file: the parsed JSON, the stored text when
+    # it is not valid JSON, or None when the file has none. The key is always
+    # present.
+    metadata: Optional[Any]
     # The file's metadata merged with its job's, as JSON text.
     effective_metadata: str
     assigned_to: str
@@ -136,6 +142,3 @@ class FileDetailsResponse(_FileDetailsRequired, total=False):
     deferred_session_id: str
     assignment_date: str
     validation_date: str
-    # The metadata attached to the file: the parsed JSON, or the stored text
-    # when it is not valid JSON.
-    metadata: Optional[Any]
