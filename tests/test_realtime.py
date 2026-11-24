@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import alfred.exceptions
 from alfred.base.config import Configuration
+from alfred.base.constants import FileEvent, JobEvent
 from alfred.realtime import AlfredRealTimeClient
 
 LOGGER_NAME = "alfred-python"
@@ -199,6 +200,32 @@ class TestAlfredRealTimeClient(unittest.TestCase):
         client.on("job_start_event", MagicMock())
 
         self.assertIn("job_start_event", _handlers_by_event(self.socket))
+
+    def test_on_registers_enum_member_under_its_wire_name(self):
+        # python-socketio looks handlers up by the event's name, so a handler
+        # registered under the enum member itself would never be called.
+        client = self._client()
+
+        client.on(JobEvent.JOB_FINISHED_EVENT, MagicMock())
+        client.on(FileEvent.FILE_DONE_EVENT, MagicMock())
+
+        registered = _handlers_by_event(self.socket)
+        self.assertIn("job_finished_event", registered)
+        self.assertIn("file_done_event", registered)
+        self.assertNotIn(JobEvent.JOB_FINISHED_EVENT, registered)
+        self.assertNotIn(FileEvent.FILE_DONE_EVENT, registered)
+
+    def test_on_handler_registered_with_enum_member_forwards_payload(self):
+        callback = MagicMock()
+        client = self._client(verbose=True)
+
+        client.on(JobEvent.JOB_FINISHED_EVENT, callback)
+        _handlers_by_event(self.socket)["job_finished_event"]({"job_id": "j-1"})
+
+        callback.assert_called_once_with({"job_id": "j-1"})
+        self.assertIn(
+            "Event job_finished_event received: {'job_id': 'j-1'}", self.logs.messages
+        )
 
     def test_job_event_handler_forwards_payload_to_callback_when_not_verbose(self):
         callback = MagicMock()

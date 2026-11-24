@@ -1,4 +1,5 @@
 # Native Imports
+from enum import Enum
 from typing import Union
 
 # 3rd Party Imports
@@ -88,12 +89,16 @@ class AlfredRealTimeClient:
             event (str): The event name.
             callback (function): The callback function to handle the event.
         """
+        # Handlers are looked up by the event's name: a member of the event
+        # enums is registered under its value, or it would never be called.
+        event_name = event.value if isinstance(event, Enum) else event
+
         def handle_event(data):
             if self.verbose:
-                self.logger.debug(f"Event {event} received: %s", data)
+                self.logger.debug(f"Event {event_name} received: %s", data)
             callback(data)
 
-        self.socket.on(event, handle_event)
+        self.socket.on(event_name, handle_event)
 
     def on_file_event(self, callback):
         """
@@ -118,7 +123,8 @@ class AlfredRealTimeClient:
         Listens to a specific event.
 
         Args:
-            event (str): The event name.
+            event (FileEvent | JobEvent | str): The event, as a member of the
+                event enums or as its name (for example "job_finished_event").
             callback (function): The callback function to handle the event.
         """
         self.__callback(event, callback)
