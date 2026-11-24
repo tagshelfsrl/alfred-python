@@ -14,11 +14,11 @@ The SDK detects the type of every local file you upload with `python-magic`, whi
 - macOS: `brew install libmagic`
 - Windows: nothing to install. The SDK depends on `python-magic-bin`, which bundles the library.
 
-Supported Python versions are listed in [docs/compatibility.md](docs/compatibility.md).
+Supported Python versions are listed in [docs/compatibility.md](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/compatibility.md).
 
 ## Quickstart
 
-Upload a local file, process it as a job and read the extracted data points. You need an API key (see [authentication](docs/authentication.md)).
+Upload a local file, process it as a job and read the extracted data points. You need an API key (see [authentication](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/authentication.md)).
 
 ```python
 import time
@@ -48,25 +48,25 @@ while client.jobs.get(job_id)["stage"] not in stopped:
 print(client.data_points.get_values(file_id))
 ```
 
-Polling is the simplest way to wait. To be notified instead, use the [real-time client](docs/realtime.md). [Getting started](docs/getting-started.md) explains each step.
+Polling is the simplest way to wait. To be notified instead, use the [real-time client](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/realtime.md). [Getting started](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/getting-started.md) explains each step.
 
 ## Documentation
 
-Every page stands on its own. Start at the [documentation index](docs/README.md).
+Every page stands on its own. Start at the [documentation index](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/README.md).
 
 | Page | What it covers |
 | --- | --- |
-| [Getting started](docs/getting-started.md) | Install, create a client, and an end-to-end walkthrough from session to results. |
-| [Authentication](docs/authentication.md) | API key, OAuth (username and password) and HMAC; the `ALFRED_API_KEY` environment variable. |
-| [Configuration](docs/configuration.md) | Base URLs, HTTP settings (timeout, retries, throttling), response types, logging and custom HTTP clients. |
-| [Files](docs/files.md) | Upload local files and remote URLs, read file details, download the original. |
-| [Sessions](docs/sessions.md) | Deferred sessions: group several uploads into one job. |
-| [Jobs](docs/jobs.md) | Create jobs, read their status, list them, and cancel, restart or check the sources of a job. |
-| [Data points](docs/data-points.md) | Read the values Alfred extracted from a file, with their confidence and validation results. |
-| [Classification](docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
-| [Real-time events](docs/realtime.md) | Subscribe to job and file events over a socket; the full event catalogue. |
-| [Error handling](docs/errors.md) | What the SDK raises and how to handle it. |
-| [Compatibility](docs/compatibility.md) | Supported Python versions and dependency policy. |
+| [Getting started](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/getting-started.md) | Install, create a client, and an end-to-end walkthrough from session to results. |
+| [Authentication](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/authentication.md) | API key, OAuth (username and password) and HMAC; the `ALFRED_API_KEY` environment variable. |
+| [Configuration](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/configuration.md) | Base URLs, HTTP settings (timeout, retries, throttling), response types, logging and custom HTTP clients. |
+| [Files](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/files.md) | Upload local files and remote URLs, read file details, download the original. |
+| [Sessions](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/sessions.md) | Deferred sessions: group several uploads into one job. |
+| [Jobs](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/jobs.md) | Create jobs, read their status, list them, and cancel, restart or check the sources of a job. |
+| [Data points](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/data-points.md) | Read the values Alfred extracted from a file, with their confidence and validation results. |
+| [Classification](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/classification.md) | Standalone classification: classify a text or a file against criteria you send with the request, without setting up document types first. |
+| [Real-time events](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/realtime.md) | Subscribe to job and file events over a socket; the full event catalogue. |
+| [Error handling](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/errors.md) | What the SDK raises and how to handle it. |
+| [Compatibility](https://github.com/tagshelfsrl/alfred-python/blob/master/docs/compatibility.md) | Supported Python versions and dependency policy. |
 
 ## Development
 
@@ -98,4 +98,4 @@ Build the source distribution and wheel into `dist/` with `make build` (it runs 
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/tagshelfsrl/alfred-python/blob/master/LICENSE).
