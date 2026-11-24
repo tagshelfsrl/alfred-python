@@ -123,7 +123,7 @@ for path, file_id in uploaded:
     print(path, {item["field_key"]: item["value"] for item in values})
 ```
 
-Each item is one extracted value, keyed by a stable `field_key`. A file with no tag, or whose tag has no data points, has no values, and the call fails with a not found error. See [data-points.md](data-points.md).
+Each item is one extracted value, keyed by a stable `field_key`, with Alfred's confidence in it (`classification_score`) and, when the data point has validators, what they found. A file with no tag, or whose tag has no data points, has no values, and the call fails with a not found error. See [data-points.md](data-points.md).
 
 To keep the original, `client.files.download(file_id)` returns the bytes and the original name ([files.md](files.md#download)).
 
