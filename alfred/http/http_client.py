@@ -17,6 +17,7 @@ from requests import Session, Request, PreparedRequest, Response
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ConnectTimeout, RequestException, Timeout
 from requests.adapters import HTTPAdapter
+from urllib3.exceptions import ReadTimeoutError
 from urllib3.util.retry import Retry
 
 # Project imports
@@ -407,9 +408,12 @@ class HttpClient:
             # urllib3 messages quote the URL, query string included.
             detail = _cap_detail(str(exc), urlsplit(url).query)
             kwargs = {"method": method, "url": url, "request": prepped_request}
+            # When urllib3 runs out of retries on a read timeout, requests reports a
+            # ConnectionError whose reason is the timeout: it is still a timeout.
+            reason = getattr(exc.args[0], "reason", None) if exc.args else None
             if isinstance(exc, ConnectTimeout):
                 error = AlfredConnectTimeoutError(f"Connection timed out: {detail}", **kwargs)
-            elif isinstance(exc, Timeout):
+            elif isinstance(exc, Timeout) or isinstance(reason, ReadTimeoutError):
                 error = AlfredTimeoutError(f"Request timed out: {detail}", **kwargs)
             elif isinstance(exc, RequestsConnectionError):
                 error = AlfredConnectionError(f"Connection failed: {detail}", **kwargs)
