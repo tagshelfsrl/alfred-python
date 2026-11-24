@@ -153,6 +153,41 @@ class TestBodyShapes(unittest.TestCase):
     def test_camel_case_correlation_id(self):
         self.assertEqual(self.build(json_body={"message": "x", "correlationId": "abc"}).correlation_id, "abc")
 
+    def test_pascal_case_correlation_id(self):
+        self.assertEqual(self.build(json_body={"Message": "x", "CorrelationId": "abc"}).correlation_id, "abc")
+
+    def test_error_list_becomes_the_message_and_the_errors_attribute(self):
+        # The shape of a refused classification request.
+        error = self.build(
+            json_body={"errors": ["tags needs at least 2 criteria; it has 1.", " text is required. "]}
+        )
+        self.assertEqual(error.errors, ["tags needs at least 2 criteria; it has 1.", "text is required."])
+        self.assertEqual(error.message, "tags needs at least 2 criteria; it has 1.; text is required.")
+        self.assertIn("tags needs at least 2 criteria", str(error))
+
+    def test_message_wins_over_error_list_which_stays_available(self):
+        error = self.build(json_body={"message": "Refused.", "errors": ["first", "second"]})
+        self.assertEqual(error.message, "Refused.")
+        self.assertEqual(error.errors, ["first", "second"])
+
+    def test_error_list_ignores_entries_that_are_not_text(self):
+        error = self.build(json_body={"errors": ["kept", "", "   ", 7, None, {"a": 1}]})
+        self.assertEqual(error.errors, ["kept"])
+        self.assertEqual(error.message, "kept")
+
+    def test_errors_is_empty_without_a_usable_list(self):
+        for body in ({"message": "x"}, {"errors": "not a list"}, {"errors": {"field": ["x"]}}, {"errors": []}, ["a"], "text"):
+            with self.subTest(body=body):
+                self.assertEqual(self.build(json_body=body).errors, [])
+
+    def test_errors_only_of_blank_entries_falls_back_to_reason_phrase(self):
+        error = self.build(json_body={"errors": ["", "  "]})
+        self.assertEqual(error.errors, [])
+        self.assertEqual(error.message, "Bad Request")
+
+    def test_errors_defaults_to_an_empty_list_when_built_directly(self):
+        self.assertEqual(errors.AlfredApiError("x", status_code=400).errors, [])
+
     def test_job_list_validation_shape(self):
         error = self.build(json_body={"error": "page must be positive", "statusCode": 400})
         self.assertEqual(error.message, "page must be positive")

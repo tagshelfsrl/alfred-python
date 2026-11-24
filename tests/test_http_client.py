@@ -679,13 +679,30 @@ class TestOAuth(ClientTestCase):
         self.assertIsNone(client.token)
         self.assertEqual(len(adapter.sent), 1)
 
-    def test_every_token_http_failure_is_an_authentication_error(self):
-        for status in (400, 401, 403, 404, 429, 500, 503):
+    def test_a_refused_token_request_is_an_authentication_error(self):
+        for status in (400, 401, 403, 404, 422):
             with self.subTest(status=status):
                 client, _ = self.make_oauth([ok({"error": "x"}, status)])
                 with self.assertRaises(errors.AlfredAuthenticationError) as ctx:
                     client.get("/a")
                 self.assertEqual(ctx.exception.status_code, status)
+
+    def test_a_rate_limited_or_failing_token_endpoint_keeps_its_own_error(self):
+        # Neither says anything about the credentials: the caller can retry.
+        expected = {
+            429: errors.AlfredRateLimitError,
+            500: errors.AlfredServerError,
+            503: errors.AlfredServerError,
+        }
+        for status, error_class in expected.items():
+            with self.subTest(status=status):
+                client, adapter = self.make_oauth([ok({"message": "later"}, status)])
+                with self.assertRaises(error_class) as ctx:
+                    client.get("/a")
+                self.assertNotIsInstance(ctx.exception, errors.AlfredAuthenticationError)
+                self.assertEqual(ctx.exception.status_code, status)
+                self.assertIsNone(client.token)
+                self.assertEqual(len(adapter.sent), 1)
 
     def test_token_401_does_not_loop(self):
         client, adapter = self.make_oauth([ok({"error": "x"}, 401)])

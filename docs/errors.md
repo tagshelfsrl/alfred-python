@@ -33,7 +33,7 @@ AlfredError                         Base of everything the SDK raises on purpose
 |-- AlfredResponseParseError        A successful response whose body could not be parsed. Also a ValueError.
 |-- AlfredApiError                  The API answered with a 4xx or 5xx status. Also a requests HTTPError.
     |-- AlfredBadRequestError       400
-    |-- AlfredAuthenticationError   401, or any failure to obtain an OAuth token
+    |-- AlfredAuthenticationError   401, or a refused OAuth token request
     |-- AlfredPermissionError       403
     |-- AlfredNotFoundError         404
     |-- AlfredConflictError         409
@@ -50,7 +50,7 @@ AlfredError                         Base of everything the SDK raises on purpose
 
 | Status | Exception | Typical cause | What to do |
 | --- | --- | --- | --- |
-| 400 | `AlfredBadRequestError` | A parameter or body is invalid, or the server refused an operation that does not qualify (for example re-processing a file in the wrong state). | Fix the request. Read `message` and `reason`. Do not retry unchanged. |
+| 400 | `AlfredBadRequestError` | A parameter or body is invalid, or the server refused an operation that does not qualify (for example re-processing a file in the wrong state). | Fix the request. Read `message`, `reason` and `errors`. Do not retry unchanged. |
 | 401 | `AlfredAuthenticationError` | Missing, wrong or revoked API key; invalid HMAC signature; bad OAuth credentials or an expired token. | Check the credentials. With OAuth the client already refreshed the token once (see below). |
 | 403 | `AlfredPermissionError` | The account lacks a role the call needs (for example the job `full` view needs the Account Admin role), or the account is suspended. | Change the request or the account's permissions. Do not retry. |
 | 404 | `AlfredNotFoundError` | The job or file does not exist or is not visible to this account. The body is empty, so `message` is `Not Found`. | Check the id. Treat as "absent" if that is a valid outcome for you. |
@@ -70,6 +70,7 @@ Every `AlfredApiError` has these attributes:
 | `message` | The best human-readable message found in the answer. It is taken from `message`, `Message`, `error_description`, `error` or `detail` in a JSON object, from a bare JSON string, or from plain text. HTML is reduced to its visible words, whitespace is collapsed and the text is capped at 300 characters. With an empty body it is the HTTP reason phrase, for example `Not Found`. |
 | `reason` | The server's machine-readable `reason` when the body has one (for example `sources-missing` when a job restart is refused), otherwise `None`. |
 | `correlation_id` | The server's error reference when the body has one, otherwise `None`. See below. |
+| `errors` | The individual reasons as a list of strings, when the body lists them under `errors` (a refused classification request does), otherwise an empty list. When the body has no other message, `message` is these reasons joined with `; `. |
 | `body` | The parsed JSON body (a dict, list or string), the text of a body that is not JSON, or `None` when the body is empty. |
 | `response` | The `requests.Response`. |
 | `request` | The `requests.PreparedRequest`. |
@@ -86,7 +87,7 @@ Every `AlfredApiError` has these attributes:
 
 When the answer has no message, the reason phrase is not repeated: `404 Not Found for GET https://app.tagshelf.com/api/job/detail/0a1b2c3d`.
 
-The API has no single error format. Bodies seen in practice are `{"message": "..."}`, `{"message": "...", "correlation_id": "..."}`, `{"error": "...", "statusCode": 400}`, `{"error": "invalid_grant", "error_description": "..."}`, a bare JSON string (file re-extract and re-process), plain text, HTML from a gateway, and an empty body. The SDK handles all of them, and a body that claims to be JSON but is not never causes a second exception.
+The API has no single error format. Bodies seen in practice are `{"message": "..."}`, `{"message": "...", "correlation_id": "..."}`, `{"error": "...", "statusCode": 400}`, `{"errors": ["...", "..."]}`, `{"error": "invalid_grant", "error_description": "..."}`, a bare JSON string (file re-extract and re-process), plain text, HTML from a gateway, and an empty body. The SDK handles all of them, and a body that claims to be JSON but is not never causes a second exception.
 
 ### The correlation id is a support reference
 
@@ -245,7 +246,7 @@ HEAD, OPTIONS and TRACE follow the GET column. A `Retry-After` header on a 413, 
 - Before the first retry the client does not wait. Later retries wait `retry_backoff_factor * 2 ** (n - 1)` seconds, where `n` is the retry number, capped at 120 seconds. With the defaults the waits are 0, 2 and 4 seconds.
 - When the server sends `Retry-After`, the client waits that long instead. This wait is not capped, so a server that asks for a long wait makes the call block for that long.
 - When retries run out, you get the typed error built from the last answer, with the real message and body, not a generic retry error.
-- The OAuth token request is a POST and is not retried. If the API answers a call with 401 while using OAuth, the client discards the token, fetches a new one and sends the call once more, using the same timeout. If that fails, you get `AlfredAuthenticationError`.
+- The OAuth token request is a POST and is not retried. If the API answers a call with 401 while using OAuth, the client discards the token, fetches a new one and sends the call once more, using the same timeout. If the API refuses to issue the token you get `AlfredAuthenticationError`; if the token endpoint is rate limited or failing you get `AlfredRateLimitError` or `AlfredServerError`, since neither says anything about your credentials.
 
 Settings go in the HTTP configuration passed to the client:
 
@@ -334,5 +335,6 @@ The OAuth password and every credential header are also kept out of exception me
 - [configuration.md](configuration.md)
 - [jobs.md](jobs.md)
 - [files.md](files.md)
+- [classification.md](classification.md)
 - [realtime.md](realtime.md)
 - [compatibility.md](compatibility.md)

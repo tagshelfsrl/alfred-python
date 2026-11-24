@@ -266,7 +266,8 @@ class HttpClient:
         - password: A string that represents the user's password used for authentication.
 
         Raises AlfredAuthenticationError if the API refuses the credentials or
-        answers without an access token.
+        answers without an access token. A rate limit or a server failure while
+        asking for the token raises AlfredRateLimitError or AlfredServerError.
         """
         data = {"grant_type": "password", "username": username, "password": password}
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -482,7 +483,13 @@ class HttpClient:
             response = self.__send(prepped_request, timeout)
 
         if response.status_code >= 400:
-            raise (error_class or AlfredApiError).from_response(response)
+            # error_class says what a refusal of this request means (a refused
+            # token request is an authentication failure). A rate limit or a
+            # server failure keeps its own class: it says nothing about the caller.
+            status = response.status_code
+            if error_class is not None and status != 429 and status < 500:
+                raise error_class.from_response(response)
+            raise AlfredApiError.from_response(response)
         return response
 
     def request(

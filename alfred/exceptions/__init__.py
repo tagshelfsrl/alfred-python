@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Text, Type
+from typing import Any, Dict, List, Optional, Text, Type
 from urllib.parse import urlsplit, urlunsplit
 
 # 3rd party imports
@@ -146,7 +146,22 @@ def _message_from_body(body: Any) -> Optional[Text]:
                 found = _message_from_body(value)
                 if found:
                     return found
+        reasons = _error_list(body)
+        if reasons:
+            return _cap("; ".join(reasons))
     return None
+
+
+def _error_list(body: Any) -> List[Text]:
+    """
+    The reasons some endpoints send as a list of strings under ``errors``
+    (for example a refused classification request). Empty when there is none.
+    """
+    if isinstance(body, dict):
+        value = body.get("errors")
+        if isinstance(value, list):
+            return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    return []
 
 
 def _string_field(body: Any, *names: Text) -> Optional[Text]:
@@ -300,6 +315,8 @@ class AlfredApiError(AlfredError, requests.exceptions.HTTPError):
     - reason: The server's machine-readable ``reason``, when it sent one.
     - correlation_id: The server's error reference for support, when present.
       It is not the correlation id of a job.
+    - errors: The individual reasons, when the answer lists them under
+      ``errors``; otherwise an empty list.
     - body: Parsed JSON body, the text of a non-JSON body, or None if empty.
     - response, request: The ``requests`` objects.
     - method, url: The request; url has no query string or credentials.
@@ -312,6 +329,7 @@ class AlfredApiError(AlfredError, requests.exceptions.HTTPError):
         status_code: Optional[int] = None,
         reason: Optional[Text] = None,
         correlation_id: Optional[Text] = None,
+        errors: Optional[List[Text]] = None,
         body: Any = None,
         response: Any = None,
         request: Any = None,
@@ -323,6 +341,7 @@ class AlfredApiError(AlfredError, requests.exceptions.HTTPError):
         self.status_code = status_code
         self.reason = reason
         self.correlation_id = correlation_id
+        self.errors = list(errors or [])
         self.body = body
         self.method = method
         self.url = _safe_url(url)
@@ -358,7 +377,10 @@ class AlfredApiError(AlfredError, requests.exceptions.HTTPError):
             "status_code": status,
             "message": message or _message_from_body(body) or _phrase(status, response),
             "reason": _string_field(body, "reason"),
-            "correlation_id": _string_field(body, "correlation_id", "correlationId"),
+            "correlation_id": _string_field(
+                body, "correlation_id", "correlationId", "CorrelationId"
+            ),
+            "errors": _error_list(body),
             "body": body,
             "response": response,
             "request": request,
@@ -377,7 +399,7 @@ class AlfredBadRequestError(AlfredApiError):
 
 
 class AlfredAuthenticationError(AlfredApiError):
-    """401, or any failure to obtain an OAuth token."""
+    """401, or a refused OAuth token request."""
 
 
 class AlfredPermissionError(AlfredApiError):
