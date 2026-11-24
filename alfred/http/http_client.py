@@ -299,13 +299,8 @@ class HttpClient:
         )
 
         def failure(message: Text):
-            return AlfredAuthenticationError(
-                message,
-                status_code=response.status_code,
-                response=response,
-                method=response.request.method,
-                url=response.request.url,
-            )
+            # Built from the response, so the error carries what the API sent.
+            return AlfredAuthenticationError.from_response(response, message)
 
         try:
             response_json = response.json()

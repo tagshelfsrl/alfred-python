@@ -718,6 +718,10 @@ class TestOAuth(ClientTestCase):
                     client.get("/a")
                 self.assertIn("access_token", str(ctx.exception))
                 self.assertEqual(ctx.exception.status_code, 200)
+                # The error keeps what the API answered, for diagnosis.
+                self.assertEqual(ctx.exception.body, body)
+                self.assertEqual(ctx.exception.method, "POST")
+                self.assertEqual(ctx.exception.url, BASE + "/token")
                 self.assertIsNone(client.token)
                 # Nothing was sent with a "Bearer None" header.
                 self.assertEqual(len(adapter.sent), 1)
@@ -728,6 +732,8 @@ class TestOAuth(ClientTestCase):
             client.get("/a")
         self.assertIn("not valid JSON", str(ctx.exception))
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
+        self.assertEqual(ctx.exception.body, "<html>login</html>")
+        self.assertEqual(ctx.exception.status_code, 200)
 
     def test_token_transport_failures_keep_their_transport_type(self):
         client, _ = self.make_oauth([requests.exceptions.ConnectionError("refused")])
