@@ -53,10 +53,28 @@ _SECONDS = re.compile(r"^\d+(\.\d+)?$")
 _MESSAGE_KEYS = ("message", "Message", "error_description", "error", "detail")
 
 
+def _rebuild_error(cls, args, state, dropped):
+    error = cls.__new__(cls, *args)
+    error.args = args
+    error.__dict__.update(state)
+    for name in dropped:
+        setattr(error, name, None)
+    return error
+
+
 class AlfredError(Exception):
     """
     Base class of every exception the Alfred SDK raises on purpose.
     """
+
+    def __reduce__(self):
+        # Lets errors cross process boundaries (multiprocessing, concurrent.futures).
+        # The ``requests`` response and request are not picklable, so they are dropped.
+        state = dict(vars(self))
+        dropped = [name for name in ("response", "request") if name in state]
+        for name in dropped:
+            del state[name]
+        return (_rebuild_error, (type(self), self.args, state, dropped))
 
 
 class AlfredMissingAuthException(AlfredError):
