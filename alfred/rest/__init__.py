@@ -9,6 +9,7 @@ from alfred.rest.data_points import DataPointsBase, DataPointsFactory
 from alfred.rest.sessions import SessionsBase, SessionsFactory
 from alfred.rest.jobs import JobsBase, JobsFactory
 from alfred.rest.files import FilesBase, FilesFactory
+from alfred.rest.classifications import ClassificationsBase, ClassificationsFactory
 
 
 class AlfredClient:
@@ -37,6 +38,7 @@ class AlfredClient:
         self._sessions: Optional[SessionsBase] = None
         self._jobs: Optional[JobsBase] = None
         self._files: Optional[FilesBase] = None
+        self._classifications: Optional[ClassificationsBase] = None
 
     def __get_domain_by_version(self, factory):
         """
@@ -84,3 +86,15 @@ class AlfredClient:
             self._files = self.__get_domain_by_version(FilesFactory)
 
         return self._files
+
+    @property
+    def classifications(self) -> "ClassificationsBase":
+        """
+        Access the Classifications domain (standalone classification).
+        """
+        if self._classifications is None:
+            self._classifications = self.__get_domain_by_version(
+                ClassificationsFactory
+            )
+
+        return self._classifications
