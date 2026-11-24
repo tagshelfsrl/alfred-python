@@ -34,6 +34,7 @@ from ..exceptions import (
     AlfredResponseParseError,
     AlfredTimeoutError,
     MAX_MESSAGE_LENGTH,
+    parse_retry_after,
 )
 
 # Statuses urllib3 retries. Only for methods urllib3 considers idempotent
@@ -43,6 +44,22 @@ RETRY_STATUS_FORCELIST = (429, 500, 502, 503, 504)
 
 # Headers that must never reach the logs.
 SENSITIVE_HEADERS = ("authorization", "proxy-authorization", "cookie", "x-tagshelfapi-key")
+
+
+class _Retry(Retry):
+    """
+    Retry policy that never fails on the Retry-After header.
+
+    urllib3 raises InvalidHeader for a Retry-After value it cannot read, from
+    inside the send, so the answer (its status, its body) would never reach
+    the caller. The header is read with the SDK's own parser instead, which
+    also accepts fractional seconds; a value that cannot be read counts as
+    absent, and the ordinary backoff applies.
+    """
+
+    def parse_retry_after(self, retry_after):
+        seconds = parse_retry_after(retry_after)
+        return seconds if seconds is not None else 0
 
 
 def _default_user_agent() -> Text:
@@ -139,7 +156,7 @@ class HttpClient:
         # raise_on_status=False: when retries run out the caller gets the last
         # response, which becomes a typed error with the server's message,
         # instead of an opaque requests RetryError.
-        retry_strategy = Retry(
+        retry_strategy = _Retry(
             total=self.max_retries,
             status_forcelist=list(RETRY_STATUS_FORCELIST),
             backoff_factor=self.retry_backoff_factor,

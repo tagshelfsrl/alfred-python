@@ -1134,5 +1134,62 @@ class TestRetriesEndToEnd(unittest.TestCase):
         self.assertNotIn("python-requests", seen[0])
 
 
+class TestUnreadableRetryAfter(unittest.TestCase):
+    """urllib3 raises InvalidHeader, from inside the send, for a Retry-After it
+    cannot read: the answer, its status and its body would be lost."""
+
+    setUp = TestRetriesEndToEnd.setUp
+    start = TestRetriesEndToEnd.start
+
+    def test_unreadable_retry_after_does_not_hide_the_api_error(self):
+        for value in ("whenever", "1.5.2", "-3", "12 seconds"):
+            with self.subTest(retry_after=value):
+                server, client = self.start(
+                    [json_item(429, {"message": "Too many calls!"}, **{"Retry-After": value})] * 3,
+                    max_retries=2,
+                )
+                with self.assertRaises(errors.AlfredRateLimitError) as ctx:
+                    client.get("/a")
+                self.assertEqual(ctx.exception.status_code, 429)
+                self.assertEqual(ctx.exception.message, "Too many calls!")
+                self.assertIsNone(ctx.exception.retry_after)
+                # Still retried, with the ordinary backoff.
+                self.assertEqual(server.methods, ["GET", "GET", "GET"])
+
+    def test_unreadable_retry_after_on_503_is_a_server_error(self):
+        server, client = self.start(
+            [json_item(503, {"message": "busy"}, **{"Retry-After": "soon"})] * 2, max_retries=1
+        )
+        with self.assertRaises(errors.AlfredServerError) as ctx:
+            client.get("/a")
+        self.assertIsNone(ctx.exception.retry_after)
+        self.assertEqual(server.methods, ["GET", "GET"])
+
+    def test_unreadable_retry_after_then_success_returns_the_answer(self):
+        server, client = self.start(
+            [json_item(429, {"message": "x"}, **{"Retry-After": "whenever"}), json_item(200, {"ok": True})]
+        )
+        parsed, _ = client.get("/a")
+        self.assertEqual(parsed, {"ok": True})
+        self.assertEqual(server.methods, ["GET", "GET"])
+
+    def test_fractional_retry_after_is_waited_and_reported(self):
+        server, client = self.start(
+            [json_item(429, {"message": "slow down"}, **{"Retry-After": "0.01"})] * 2, max_retries=1
+        )
+        with self.assertRaises(errors.AlfredRateLimitError) as ctx:
+            client.get("/a")
+        self.assertEqual(ctx.exception.retry_after, 0.01)
+        self.assertEqual(server.methods, ["GET", "GET"])
+
+    def test_readable_retry_after_is_still_waited(self):
+        server, client = self.start(
+            [json_item(503, {"message": "x"}, **{"Retry-After": "1"}), json_item(200, {"ok": True})]
+        )
+        with mock.patch("urllib3.util.retry.time.sleep") as sleep:
+            client.get("/a")
+        sleep.assert_called_once_with(1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

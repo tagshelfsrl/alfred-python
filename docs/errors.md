@@ -244,7 +244,7 @@ HEAD, OPTIONS and TRACE follow the GET column. A `Retry-After` header on a 413, 
 
 - Each call is sent once plus up to `max_retries` retries.
 - Before the first retry the client does not wait. Later retries wait `retry_backoff_factor * 2 ** (n - 1)` seconds, where `n` is the retry number, capped at 120 seconds. With the defaults the waits are 0, 2 and 4 seconds.
-- When the server sends `Retry-After`, the client waits that long instead. This wait is not capped, so a server that asks for a long wait makes the call block for that long.
+- When the server sends `Retry-After`, in seconds (fractions allowed) or as an HTTP date, the client waits that long instead. This wait is not capped, so a server that asks for a long wait makes the call block for that long. A `Retry-After` value the client cannot read is ignored: the ordinary waits apply, and the error's `retry_after` is `None`.
 - When retries run out, you get the typed error built from the last answer, with the real message and body, not a generic retry error.
 - The OAuth token request is a POST and is not retried. If the API answers a call with 401 while using OAuth, the client discards the token, fetches a new one and sends the call once more, using the same timeout. If the API refuses to issue the token you get `AlfredAuthenticationError`; if the token endpoint is rate limited or failing you get `AlfredRateLimitError` or `AlfredServerError`, since neither says anything about your credentials.
 
