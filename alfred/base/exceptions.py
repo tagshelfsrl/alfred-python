@@ -1,11 +1,5 @@
-class AlfredMissingAuthException(Exception):
-    """
-    Raised when proper authentication/authorization have not been provided.
-    """
+# The classes live in ``alfred.exceptions``; these names stay importable from
+# here for existing code.
+from alfred.exceptions import AlfredMissingArgument, AlfredMissingAuthException
 
-
-class AlfredMissingArgument(Exception):
-    """
-    Raised when a payload is missing a required argument based on the whole context
-    of the operation.
-    """
+__all__ = ["AlfredMissingAuthException", "AlfredMissingArgument"]
