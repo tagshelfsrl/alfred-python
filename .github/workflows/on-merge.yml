@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout alfred-python
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
@@ -70,10 +70,10 @@ jobs:
     environment:
       name: ${{ needs.release.outputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: ${{ needs.release.outputs.release_created }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: ${{ needs.release.outputs.release_created }}
         with:
           python-version: "3.10"
