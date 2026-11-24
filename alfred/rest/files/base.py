@@ -7,6 +7,7 @@ from .typed import (
     UploadLocalFilePayload,
     UploadRemoteFilePayload,
     UploadResponse,
+    UploadRemoteFileResponse,
     DownloadResponse,
     FileDetailsResponse,
 )
@@ -33,9 +34,10 @@ class FilesBase(ABC):
         """
 
     @abstractmethod
-    def upload(self, payload: UploadRemoteFilePayload) -> UploadResponse:
+    def upload(self, payload: UploadRemoteFilePayload) -> UploadRemoteFileResponse:
         """
-        Upload a remote file (URL or blob).
+        Upload a remote file (URL or blob). Alfred creates a job from it and
+        answers with the job's ID.
 
         Args:
         - payload: Payload with remote file details and Alfred's properties.

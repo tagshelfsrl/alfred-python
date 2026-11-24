@@ -53,18 +53,85 @@ class TestFilesGetAndUpload(unittest.TestCase):
 
     def test_upload_posts_payload_as_data_to_upload_route(self):
         payload = {"url": "https://example.com/a.pdf", "container": "c1"}
-        client = RecordingHttpClient(post_result=({"file_id": "f1"}, None))
+        client = RecordingHttpClient(post_result=({"job_id": "j1"}, None))
 
         Files(client).upload(payload)
 
         self.assertEqual(client.post_calls, [("/api/file/upload", None, payload, None, None)])
 
     def test_upload_returns_parsed_response(self):
-        client = RecordingHttpClient(post_result=({"file_id": "f1"}, None))
+        client = RecordingHttpClient(
+            post_result=({"job_id": "j1", "correlation_id": "erp:1"}, None)
+        )
 
         result = Files(client).upload({"url": "https://example.com/a.pdf"})
 
-        self.assertEqual(result, {"file_id": "f1"})
+        self.assertEqual(result, {"job_id": "j1", "correlation_id": "erp:1"})
+
+    def _uploaded_body(self, payload):
+        client = RecordingHttpClient(post_result=({"job_id": "j1"}, None))
+        Files(client).upload(payload)
+        return client.post_calls[0][2]
+
+    def test_upload_sends_legacy_filenames_under_the_name_the_api_reads(self):
+        # The API reads `file_names`; it ignores `filenames`.
+        body = self._uploaded_body(
+            {"urls": ["https://example.com/a.pdf"], "filenames": ["invoice.pdf"]}
+        )
+
+        self.assertEqual(
+            body, {"urls": ["https://example.com/a.pdf"], "file_names": ["invoice.pdf"]}
+        )
+
+    def test_upload_sends_legacy_filename_under_the_name_the_api_reads(self):
+        body = self._uploaded_body(
+            {"url": "https://example.com/a.pdf", "filename": "invoice.pdf"}
+        )
+
+        self.assertEqual(
+            body, {"url": "https://example.com/a.pdf", "file_name": "invoice.pdf"}
+        )
+
+    def test_upload_prefers_the_api_name_when_both_spellings_are_given(self):
+        body = self._uploaded_body(
+            {
+                "urls": ["https://example.com/a.pdf"],
+                "filename": "old.pdf",
+                "file_name": "new.pdf",
+                "filenames": ["old.pdf"],
+                "file_names": ["new.pdf"],
+            }
+        )
+
+        self.assertEqual(
+            body,
+            {
+                "urls": ["https://example.com/a.pdf"],
+                "file_name": "new.pdf",
+                "file_names": ["new.pdf"],
+            },
+        )
+
+    def test_upload_does_not_modify_the_callers_payload(self):
+        payload = {"urls": ["https://example.com/a.pdf"], "filenames": ["invoice.pdf"]}
+
+        self._uploaded_body(payload)
+
+        self.assertEqual(
+            payload, {"urls": ["https://example.com/a.pdf"], "filenames": ["invoice.pdf"]}
+        )
+
+    def test_upload_forwards_correlation_id_and_password_untouched(self):
+        payload = {
+            "urls": ["https://example.com/statement.pdf"],
+            "correlation_id": "erp:invoice:INV-1042",
+            "password": "  p@ss word  ",
+        }
+
+        self.assertEqual(self._uploaded_body(payload), payload)
+
+    def test_upload_passes_a_payload_that_is_not_a_dict_through(self):
+        self.assertIsNone(self._uploaded_body(None))
 
 
 class TestFilesDownload(unittest.TestCase):
@@ -234,6 +301,20 @@ class TestFilesUploadFile(unittest.TestCase):
 
         _, _, data, _, _ = client.post_calls[0]
         self.assertEqual(data, {"session_id": "s1", "metadata": "{}"})
+
+    def test_upload_file_sends_empty_json_metadata_when_metadata_is_none(self):
+        client = RecordingHttpClient(post_result=({"file_id": "f1"}, None))
+
+        Files(client).upload_file(
+            {
+                "file": BytesIO(b"%PDF-1.4"),
+                "filename": "a.pdf",
+                "session_id": "s1",
+                "metadata": None,
+            }
+        )
+
+        self.assertEqual(client.post_calls[0][2]["metadata"], "{}")
 
     def test_upload_file_sends_metadata_as_json_string(self):
         client = RecordingHttpClient()

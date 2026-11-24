@@ -35,15 +35,37 @@ class Files(FilesBase):
             "original_name": original_name,
         }
 
-    def upload(self, payload: UploadRemoteFilePayload) -> UploadResponse:
-        parsed_resp, _ = self.http_client.post("/api/file/upload", data=payload)
+    def upload(self, payload: UploadRemoteFilePayload) -> UploadRemoteFileResponse:
+        parsed_resp, _ = self.http_client.post(
+            "/api/file/upload", data=self.__with_api_names(payload)
+        )
         return parsed_resp
+
+    @staticmethod
+    def __with_api_names(payload):
+        """
+        The API reads the names of remote files from `file_name` and
+        `file_names`. Earlier versions of this SDK documented `filename` and
+        `filenames`, which the API ignores: send those under the names it
+        reads. A value given under the API's own name wins. The caller's
+        payload is not modified.
+        """
+        if not isinstance(payload, dict):
+            return payload
+
+        body = dict(payload)
+        for legacy_name, api_name in (("filename", "file_name"), ("filenames", "file_names")):
+            if legacy_name in body:
+                value = body.pop(legacy_name)
+                body.setdefault(api_name, value)
+        return body
 
     def upload_file(self, payload: UploadLocalFilePayload) -> UploadResponse:
         file = payload.get("file")
         filename = payload.get("filename")
         session_id = payload.get("session_id")
-        metadata = payload.get("metadata", {})
+        # A missing or null metadata is sent as an empty object, not as "null".
+        metadata = payload.get("metadata") or {}
 
         # Detect MIME type
         content_type = magic.from_buffer(file.read(1024), mime=True)
