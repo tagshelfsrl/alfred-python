@@ -12,7 +12,7 @@ Each page is self-contained: you can land on any of them from a search and use i
 | [files.md](files.md) | `client.files`: get a file's details, download the original, upload remote files, upload a local file into a session. |
 | [sessions.md](sessions.md) | `client.sessions`: open and inspect deferred sessions, which group several uploads into a single job. |
 | [jobs.md](jobs.md) | `client.jobs`: create jobs, read a job, list jobs, and cancel, restart or check the sources of a job. |
-| [data-points.md](data-points.md) | `client.data_points`: read the values Alfred extracted from a file. |
+| [data-points.md](data-points.md) | `client.data_points`: read the values Alfred extracted from a file, with the confidence of each one and what its validators found. |
 | [classification.md](classification.md) | `client.classifications`: standalone classification. Classify a text or a file against criteria you send with the request, without setting up document types first. |
 | [realtime.md](realtime.md) | `AlfredRealTimeClient`: subscribe to job and file events instead of polling, the event catalogue, threading, reconnection and failure modes. |
 | [errors.md](errors.md) | What the SDK raises and how to handle it. |
