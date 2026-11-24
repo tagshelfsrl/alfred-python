@@ -35,6 +35,7 @@ dependencies = [
 
 [project.urls]
 homepage = "https://github.com/tagshelfsrl/alfred-python"
+documentation = "https://github.com/tagshelfsrl/alfred-python/tree/master/docs"
 
 [tool.setuptools.packages.find]
 include = ["alfred", "alfred.*"]
