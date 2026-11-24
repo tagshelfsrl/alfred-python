@@ -85,5 +85,5 @@ Situations to handle (see [errors.md](errors.md)):
 
 - [Files](files.md): file details, including the tag and status
 - [Jobs](jobs.md): find a job's files
-- [Real-time events](realtime.md): the `file_done_event` event
+- [Real-time events](realtime.md): be told when a file is done (`alfred_event_file_done` on the file event stream)
 - [Error handling](errors.md)
